@@ -1,5 +1,5 @@
+mod html;
 
 fn main() {
-    println!("Hello, world!");
+    let tags = html::parse_html("<h1> Hi </h1>");
 }
-
