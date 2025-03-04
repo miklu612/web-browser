@@ -1,5 +1,8 @@
 mod html;
 
 fn main() {
-    let tags = html::parse_html("<h1> Hi </h1>");
+    let html_source = "<div>\n\t<h1> Hello, World! </h1>\n</div>";
+    println!("Parsing:\n{}", html_source);
+    let tags = html::parse_html(html_source);
+    println!("{:?}", tags);
 }
