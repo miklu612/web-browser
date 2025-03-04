@@ -5,6 +5,8 @@ enum Tag {
     PlainText,
     Header(u32),
     Div,
+    Body,
+    Html,
 }
 
 impl Tag {
@@ -12,6 +14,8 @@ impl Tag {
         match tag {
             "h1" => Ok(Tag::Header(1)),
             "div" => Ok(Tag::Div),
+            "body" => Ok(Tag::Body),
+            "html" => Ok(Tag::Html),
             v => Err(format!("Unknown tag: {}", v)),
         }
     }
