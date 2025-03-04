@@ -1,6 +1,8 @@
 use std::{fs::File, io::prelude::Read, path::Path};
+use window::Window;
 
 mod html;
+mod window;
 
 fn read_file(path: &Path) -> String {
     let mut file = File::open(path).unwrap();
@@ -10,8 +12,6 @@ fn read_file(path: &Path) -> String {
 }
 
 fn main() {
-    let html_code = read_file(Path::new("./tests/index.html"));
-    println!("Parsing the following html code\n{}", html_code);
-    let elements = html::parse_html(&html_code);
-    println!("Output: {:?}", elements)
+    let mut window = Window::new();
+    window.open();
 }
