@@ -1,6 +1,6 @@
 use std::{iter::Peekable, str::Chars};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum Tag {
     PlainText,
     Header(u32),
@@ -97,6 +97,20 @@ fn parse_element_content(mut iter: &mut Peekable<Chars>, parent_tag: &str) -> Ve
             }
         }
     }
+
+    // Strip all of the inner text content
+    elements
+        .iter_mut()
+        .for_each(|x| x.inner_text = x.inner_text.trim().to_owned());
+
+    // Filter out empty PlainText elements
+    elements.retain(|x| {
+        if x.element_type == Tag::PlainText {
+            !x.inner_text.is_empty()
+        } else {
+            true
+        }
+    });
 
     elements
 }
