@@ -1,17 +1,13 @@
 use glium::backend::glutin::glutin;
 use glium::{
-    backend::glutin::Display,
     glutin::{
         context::{ContextAttributes, NotCurrentGlContext, PossiblyCurrentGlContext},
         display::GlDisplay,
         surface::WindowSurface,
     },
-    Surface, SwapBuffersError,
+    Surface,
 };
-use std::{
-    ffi::{c_void, CStr, CString},
-    num::NonZero,
-};
+use std::num::NonZero;
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
@@ -86,7 +82,7 @@ impl ApplicationHandler for Window {
             WindowEvent::RedrawRequested => {
                 let mut frame = self.display.as_ref().unwrap().draw();
                 frame.clear(None, Some((1.0, 0.0, 0.0, 1.0)), true, None, None);
-                frame.finish();
+                frame.finish().expect("Failed to finish frame draw");
                 self.window.as_ref().unwrap().request_redraw();
             }
             _ => (),

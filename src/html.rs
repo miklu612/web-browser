@@ -88,7 +88,7 @@ fn parse_element_content(mut iter: &mut Peekable<Chars>, parent_tag: &str) -> Ve
                 None => panic!("Expected character after '<'"),
             },
             c => {
-                if let Some(mut v) = elements.last_mut() {
+                if let Some(v) = elements.last_mut() {
                     v.inner_text.push(*c);
                 } else {
                     elements.push(Element::new_with_text(Tag::PlainText, &c.to_string()));
@@ -147,7 +147,7 @@ fn parse_html_element(mut iter: &mut Peekable<Chars>) -> Element {
     element
 }
 
-fn parse_html_iter(mut iter: &mut Peekable<Chars>) -> Vec<Element> {
+fn parse_html_iter(iter: &mut Peekable<Chars>) -> Vec<Element> {
     let mut elements = Vec::new();
 
     loop {
