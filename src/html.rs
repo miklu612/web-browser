@@ -153,8 +153,15 @@ fn parse_html_iter(mut iter: &mut Peekable<Chars>) -> Vec<Element> {
     loop {
         match iter.peek() {
             Some('<') => {
-                let element = parse_html_element(iter);
-                elements.push(element);
+                if iter.clone().nth(1) == Some('!') {
+                    let doctype_string = "<!DOCTYPE html>";
+                    for character in doctype_string.chars() {
+                        assert_eq!(iter.next(), Some(character));
+                    }
+                } else {
+                    let element = parse_html_element(iter);
+                    elements.push(element);
+                }
             }
             Some(v) if v.is_whitespace() => {
                 iter.next();
