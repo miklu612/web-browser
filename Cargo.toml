@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 glium = "0.36.0"
 winit = "0.30.9"
+nalgebra = "0.33.2"
