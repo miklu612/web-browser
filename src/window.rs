@@ -194,7 +194,7 @@ impl ApplicationHandler for Window {
             WindowEvent::RedrawRequested => {
                 let mut frame = self.display.as_ref().unwrap().draw();
                 frame.clear(None, Some((0.8, 0.8, 0.8, 1.0)), true, None, None);
-                self.render_text("HELLO", &mut frame);
+                self.render_text("QUICKBROWNFOXJUMPEDOVERTHELAZYDOG", &mut frame);
                 frame.finish().expect("Failed to finish frame draw");
                 self.window.as_ref().unwrap().request_redraw();
             }
@@ -234,28 +234,41 @@ impl Window {
     }
 
     pub fn render_text(&self, text: &str, frame: &mut Frame) {
-        let offset = 200;
+        let offset = 50;
         for i in 0..text.len() {
             let coordinates =
                 self.screen_to_opengl_coordinates((offset * i + offset / 2) as u32, 500 as u32);
+
             let size = {
                 let size = self.screen_to_relative_coordinates(offset as u32, offset as u32);
                 Vector3::new(size[0], size[1], 1.0)
             };
+
             let mat4 = Matrix4::identity()
                 .append_nonuniform_scaling(&size)
                 .append_translation(&Vector3::new(coordinates[0], coordinates[1], 0.0));
+
             let compiled_matrix = TryInto::<[[f32; 4]; 4]>::try_into(mat4.data.0).unwrap();
+
             let uniforms = uniform![
                 transform: compiled_matrix,
                 font_texture: self.font_texture
                     .as_ref()
                     .unwrap()
             ];
+
             frame
                 .draw(
-                    &self.character_rects.get(&'a').unwrap().vao,
-                    &self.character_rects.get(&'a').unwrap().ebo,
+                    &self
+                        .character_rects
+                        .get(&text.chars().nth(i).unwrap())
+                        .unwrap()
+                        .vao,
+                    &self
+                        .character_rects
+                        .get(&text.chars().nth(i).unwrap())
+                        .unwrap()
+                        .ebo,
                     self.program.as_ref().unwrap(),
                     &uniforms,
                     &DrawParameters {
@@ -284,19 +297,38 @@ impl Window {
 
         let stride_x = 143.0 / image_data.width() as f32;
         let stride_y = 200.0 / image_data.height() as f32;
-        println!("{}, {}", stride_x, stride_y);
-        self.character_rects.insert(
-            'a',
-            Rectangle::with_uv(
-                self.display.as_ref().unwrap(),
-                [
-                    [0.0, 1.0 - stride_y],
-                    [0.0, 1.0],
-                    [stride_x, 1.0 - stride_y],
-                    [stride_x, 1.0],
-                ],
-            ),
-        );
+
+        // Load the first row of letters
+        for x in 0..14 {
+            self.character_rects.insert(
+                ('A' as u8 + x as u8) as char,
+                Rectangle::with_uv(
+                    self.display.as_ref().unwrap(),
+                    [
+                        [stride_x * x as f32, 1.0 - stride_y],
+                        [stride_x * x as f32, 1.0],
+                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y],
+                        [stride_x * (x as f32 + 1.0), 1.0],
+                    ],
+                ),
+            );
+        }
+
+        // Load the second row of letters
+        for x in 0..12 {
+            self.character_rects.insert(
+                ('O' as u8 + x as u8) as char,
+                Rectangle::with_uv(
+                    self.display.as_ref().unwrap(),
+                    [
+                        [stride_x * x as f32, 1.0 - stride_y * 2.0],
+                        [stride_x * x as f32, 1.0 - stride_y],
+                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 2.0],
+                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y],
+                    ],
+                ),
+            );
+        }
     }
 
     pub fn open(&mut self) {
