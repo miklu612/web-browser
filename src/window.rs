@@ -156,24 +156,9 @@ impl ApplicationHandler for Window {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::RedrawRequested => {
-                let mat4 = Matrix4::identity().append_nonuniform_scaling(&Vector3::repeat(0.5));
-                let compiled_matrix = TryInto::<[[f32; 4]; 4]>::try_into(mat4.data.0).unwrap();
-                println!(
-                    "Approximate rectangle position: {:?}",
-                    mat4 * Vector4::repeat(0.1)
-                );
-                let uniforms = uniform![transform: compiled_matrix];
                 let mut frame = self.display.as_ref().unwrap().draw();
                 frame.clear(None, Some((0.2, 0.2, 0.2, 1.0)), true, None, None);
-                frame
-                    .draw(
-                        &self.rect.as_ref().unwrap().vao,
-                        &self.rect.as_ref().unwrap().ebo,
-                        self.program.as_ref().unwrap(),
-                        &uniforms,
-                        &Default::default(),
-                    )
-                    .unwrap();
+                self.render_text("Hello, World!", &mut frame);
                 frame.finish().expect("Failed to finish frame draw");
                 self.window.as_ref().unwrap().request_redraw();
             }
@@ -193,7 +178,47 @@ impl Window {
         }
     }
 
-    pub fn render_text(&self, text: &str, frame: &Frame) {}
+    /// Transforms screen coordinates into a -1.0 - 1.0 scale
+    pub fn screen_to_opengl_coordinates(&self, x: u32, y: u32) -> [f32; 2] {
+        let inner_size = self.window.as_ref().unwrap().inner_size();
+        [
+            (x as f32 / inner_size.width as f32 - 0.5) * 2.0,
+            (y as f32 / inner_size.height as f32 - 0.5) * -2.0,
+        ]
+    }
+
+    /// Transforms screen coordinates into a 0.0 - 1.0 scale
+    pub fn screen_to_relative_coordinates(&self, x: u32, y: u32) -> [f32; 2] {
+        let inner_size = self.window.as_ref().unwrap().inner_size();
+        [
+            x as f32 / inner_size.width as f32,
+            y as f32 / inner_size.height as f32,
+        ]
+    }
+
+    pub fn render_text(&self, text: &str, frame: &mut Frame) {
+        for i in 0..text.len() {
+            let coordinates = self.screen_to_opengl_coordinates(20 * i as u32, 10 as u32);
+            let size = {
+                let size = self.screen_to_relative_coordinates(20, 20);
+                Vector3::new(size[0], size[1], 1.0)
+            };
+            let mat4 = Matrix4::identity()
+                .append_nonuniform_scaling(&size)
+                .append_translation(&Vector3::new(coordinates[0], coordinates[1], 0.0));
+            let compiled_matrix = TryInto::<[[f32; 4]; 4]>::try_into(mat4.data.0).unwrap();
+            let uniforms = uniform![transform: compiled_matrix];
+            frame
+                .draw(
+                    &self.rect.as_ref().unwrap().vao,
+                    &self.rect.as_ref().unwrap().ebo,
+                    self.program.as_ref().unwrap(),
+                    &uniforms,
+                    &Default::default(),
+                )
+                .unwrap();
+        }
+    }
 
     pub fn open(&mut self) {
         let event_loop = EventLoop::new().unwrap();
