@@ -8,10 +8,15 @@ use glium::{
     },
     implement_vertex,
     index::PrimitiveType,
-    program, uniform, Frame, IndexBuffer, Program, Surface, VertexBuffer,
+    program,
+    texture::{MipmapsOption, RawImage2d, UncompressedFloatFormat},
+    uniform,
+    uniforms::ImageUnitFormat,
+    Blend, DrawParameters, Frame, IndexBuffer, Program, Surface, Texture2d, VertexBuffer,
 };
+use image::ImageReader;
 use nalgebra::{Matrix4, Orthographic3, Vector3, Vector4};
-use std::{borrow::Borrow, num::NonZero};
+use std::{borrow::Borrow, num::NonZero, path::Path};
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
@@ -22,9 +27,10 @@ use winit::{
 
 #[derive(Copy, Clone)]
 struct Vertex {
-    position: [f32; 3],
+    a_position: [f32; 3],
+    a_tex_coord: [f32; 2],
 }
-implement_vertex!(Vertex, position);
+implement_vertex!(Vertex, a_position, a_tex_coord);
 
 struct Rectangle {
     vao: VertexBuffer<Vertex>,
@@ -35,16 +41,20 @@ impl Rectangle {
     pub fn create(display: &Display<WindowSurface>) -> Self {
         let vertex_data = [
             Vertex {
-                position: [-1.0, -1.0, 0.0],
+                a_position: [-1.0, -1.0, 0.0],
+                a_tex_coord: [0.0, 0.0],
             },
             Vertex {
-                position: [-1.0, 1.0, 0.0],
+                a_position: [-1.0, 1.0, 0.0],
+                a_tex_coord: [0.0, 1.0],
             },
             Vertex {
-                position: [1.0, -1.0, 0.0],
+                a_position: [1.0, -1.0, 0.0],
+                a_tex_coord: [1.0, 0.0],
             },
             Vertex {
-                position: [1.0, 1.0, 0.0],
+                a_position: [1.0, 1.0, 0.0],
+                a_tex_coord: [1.0, 1.0],
             },
         ];
         let index_data = [0, 1, 2, 3, 2, 1];
@@ -60,7 +70,7 @@ pub struct Window {
     display: Option<Display<WindowSurface>>,
     rect: Option<Rectangle>,
     program: Option<Program>,
-    viewport: Option<Orthographic3<f32>>,
+    font_texture: Option<Texture2d>,
 }
 
 impl ApplicationHandler for Window {
@@ -124,32 +134,32 @@ impl ApplicationHandler for Window {
             330 => {
                 vertex: r#"
                     #version 330 core
-                    layout (location=0) in vec3 position;
+                    layout (location=0) in vec3 a_position;
+                    layout (location=1) in vec2 a_tex_coord;
                     uniform mat4 transform;
+                    out vec2 texCoord;
                     void main() {
-                        gl_Position = transform * vec4(position, 1.0);
+                        gl_Position = transform * vec4(a_position, 1.0);
+                        texCoord = a_tex_coord;
                     }
                 "#,
                 fragment: r#"
                     #version 330 core
                     out vec4 color;
+                    in vec2 texCoord;
+                    uniform sampler2D font_texture;
                     void main() {
-                        color = vec4(1.0, 0.0, 0.0, 1.0);
+                        //color = vec4(texCoord.x, texCoord.y, 0, 1);
+                        color = texture(font_texture, texCoord);
                     }
                 "#
             })
             .unwrap(),
         );
 
+        self.font_texture = Some(self.load_texture(Path::new("textures/font.png")));
+
         let inner_size = self.window.as_ref().unwrap().inner_size();
-        self.viewport = Some(Orthographic3::new(
-            0.0,
-            inner_size.width as f32,
-            0.0,
-            inner_size.height as f32,
-            0.1,
-            100.0,
-        ));
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
@@ -174,7 +184,7 @@ impl Window {
             display: None,
             rect: None,
             program: None,
-            viewport: None,
+            font_texture: None,
         }
     }
 
@@ -197,27 +207,44 @@ impl Window {
     }
 
     pub fn render_text(&self, text: &str, frame: &mut Frame) {
+        let offset = 1000;
         for i in 0..text.len() {
-            let coordinates = self.screen_to_opengl_coordinates(20 * i as u32, 10 as u32);
+            let coordinates = self.screen_to_opengl_coordinates(offset * i as u32, 1000 as u32);
             let size = {
-                let size = self.screen_to_relative_coordinates(20, 20);
+                let size = self.screen_to_relative_coordinates(offset, offset);
                 Vector3::new(size[0], size[1], 1.0)
             };
             let mat4 = Matrix4::identity()
                 .append_nonuniform_scaling(&size)
                 .append_translation(&Vector3::new(coordinates[0], coordinates[1], 0.0));
             let compiled_matrix = TryInto::<[[f32; 4]; 4]>::try_into(mat4.data.0).unwrap();
-            let uniforms = uniform![transform: compiled_matrix];
+            let uniforms = uniform![transform: compiled_matrix, font_texture: self.font_texture.as_ref().unwrap()];
             frame
                 .draw(
                     &self.rect.as_ref().unwrap().vao,
                     &self.rect.as_ref().unwrap().ebo,
                     self.program.as_ref().unwrap(),
                     &uniforms,
-                    &Default::default(),
+                    &DrawParameters {
+                        blend: Blend::alpha_blending(),
+                        ..Default::default()
+                    },
                 )
                 .unwrap();
         }
+    }
+
+    pub fn load_texture(&self, path: &Path) -> Texture2d {
+        let image_data = ImageReader::open(path)
+            .unwrap()
+            .decode()
+            .unwrap()
+            .to_rgba8();
+        let raw_image = RawImage2d::from_raw_rgba_reversed(
+            &image_data.clone().into_raw(),
+            image_data.dimensions(),
+        );
+        Texture2d::new(self.display.as_ref().unwrap(), raw_image).unwrap()
     }
 
     pub fn open(&mut self) {
