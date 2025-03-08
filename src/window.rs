@@ -8,9 +8,10 @@ use glium::{
     },
     implement_vertex,
     index::PrimitiveType,
-    program, uniform, IndexBuffer, Program, Surface, VertexBuffer,
+    program, uniform, Frame, IndexBuffer, Program, Surface, VertexBuffer,
 };
-use std::num::NonZero;
+use nalgebra::{Matrix4, Orthographic3, Vector3, Vector4};
+use std::{borrow::Borrow, num::NonZero};
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
@@ -59,6 +60,7 @@ pub struct Window {
     display: Option<Display<WindowSurface>>,
     rect: Option<Rectangle>,
     program: Option<Program>,
+    viewport: Option<Orthographic3<f32>>,
 }
 
 impl ApplicationHandler for Window {
@@ -123,8 +125,9 @@ impl ApplicationHandler for Window {
                 vertex: r#"
                     #version 330 core
                     layout (location=0) in vec3 position;
+                    uniform mat4 transform;
                     void main() {
-                        gl_Position = vec4(position, 1.0);
+                        gl_Position = transform * vec4(position, 1.0);
                     }
                 "#,
                 fragment: r#"
@@ -137,13 +140,29 @@ impl ApplicationHandler for Window {
             })
             .unwrap(),
         );
+
+        let inner_size = self.window.as_ref().unwrap().inner_size();
+        self.viewport = Some(Orthographic3::new(
+            0.0,
+            inner_size.width as f32,
+            0.0,
+            inner_size.height as f32,
+            0.1,
+            100.0,
+        ));
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::RedrawRequested => {
-                let uniforms = uniform![];
+                let mat4 = Matrix4::identity().append_nonuniform_scaling(&Vector3::repeat(0.5));
+                let compiled_matrix = TryInto::<[[f32; 4]; 4]>::try_into(mat4.data.0).unwrap();
+                println!(
+                    "Approximate rectangle position: {:?}",
+                    mat4 * Vector4::repeat(0.1)
+                );
+                let uniforms = uniform![transform: compiled_matrix];
                 let mut frame = self.display.as_ref().unwrap().draw();
                 frame.clear(None, Some((0.2, 0.2, 0.2, 1.0)), true, None, None);
                 frame
@@ -170,8 +189,11 @@ impl Window {
             display: None,
             rect: None,
             program: None,
+            viewport: None,
         }
     }
+
+    pub fn render_text(&self, text: &str, frame: &Frame) {}
 
     pub fn open(&mut self) {
         let event_loop = EventLoop::new().unwrap();
