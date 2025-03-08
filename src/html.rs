@@ -1,7 +1,7 @@
 use std::{iter::Peekable, str::Chars};
 
 #[derive(Debug, PartialEq)]
-enum Tag {
+pub enum Tag {
     PlainText,
     Header(u32),
     Div,

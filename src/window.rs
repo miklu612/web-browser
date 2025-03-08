@@ -1,3 +1,4 @@
+use crate::html::{Element, Tag};
 use glium::backend::glutin::glutin;
 use glium::{
     backend::glutin::Display,
@@ -97,6 +98,7 @@ pub struct Window {
     program: Option<Program>,
     font_texture: Option<Texture2d>,
     character_rects: HashMap<char, Rectangle>,
+    elements: Vec<Element>,
 }
 
 impl ApplicationHandler for Window {
@@ -194,7 +196,7 @@ impl ApplicationHandler for Window {
             WindowEvent::RedrawRequested => {
                 let mut frame = self.display.as_ref().unwrap().draw();
                 frame.clear(None, Some((0.8, 0.8, 0.8, 1.0)), true, None, None);
-                self.render_text("QUICKBROWNFOXJUMPEDOVERTHELAZYDOG", &mut frame);
+                self.render_current_page(&mut frame);
                 frame.finish().expect("Failed to finish frame draw");
                 self.window.as_ref().unwrap().request_redraw();
             }
@@ -212,6 +214,7 @@ impl Window {
             program: None,
             font_texture: None,
             character_rects: HashMap::new(),
+            elements: Vec::new(),
         }
     }
 
@@ -233,11 +236,35 @@ impl Window {
         ]
     }
 
-    pub fn render_text(&self, text: &str, frame: &mut Frame) {
+    pub fn render(&mut self, elements: Vec<Element>) {
+        self.elements = elements;
+        self.open();
+    }
+
+    pub fn render_current_page(&self, frame: &mut Frame) {
+        let body = &self.elements[0].children[0];
+        assert!(body.element_type == Tag::Body);
+
+        let mut y = 30;
+        for child in &body.children {
+            for child_of_child in &child.children {
+                if child_of_child.element_type == Tag::PlainText {
+                    self.render_text(&child_of_child.inner_text.to_ascii_uppercase(), frame, 0, y);
+                    y += 40;
+                }
+            }
+        }
+    }
+
+    pub fn render_text(&self, text: &str, frame: &mut Frame, x: u32, y: u32) {
         let offset = 50;
         for i in 0..text.len() {
+            if text.chars().nth(i) == Some(' ') {
+                continue;
+            }
+
             let coordinates =
-                self.screen_to_opengl_coordinates((offset * i + offset / 2) as u32, 500 as u32);
+                self.screen_to_opengl_coordinates((offset * i + offset / 2) as u32 + x, y as u32);
 
             let size = {
                 let size = self.screen_to_relative_coordinates(offset as u32, offset as u32);
@@ -262,12 +289,12 @@ impl Window {
                     &self
                         .character_rects
                         .get(&text.chars().nth(i).unwrap())
-                        .unwrap()
+                        .unwrap_or(self.character_rects.get(&'A').unwrap())
                         .vao,
                     &self
                         .character_rects
                         .get(&text.chars().nth(i).unwrap())
-                        .unwrap()
+                        .unwrap_or(self.character_rects.get(&'A').unwrap())
                         .ebo,
                     self.program.as_ref().unwrap(),
                     &uniforms,
