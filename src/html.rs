@@ -1,4 +1,4 @@
-use std::{iter::Peekable, str::Chars};
+use std::{collections::HashMap, iter::Peekable, str::Chars};
 
 #[derive(Debug, PartialEq)]
 pub enum Tag {
@@ -28,6 +28,7 @@ pub struct Element {
     pub element_type: Tag,
     pub children: Vec<Element>,
     pub inner_text: String,
+    pub attributes: HashMap<String, String>,
 }
 
 impl Element {
@@ -36,6 +37,7 @@ impl Element {
             element_type: tag,
             children: Vec::new(),
             inner_text: String::new(),
+            attributes: HashMap::new(),
         }
     }
 
@@ -44,6 +46,7 @@ impl Element {
             element_type: tag,
             inner_text: inner_text.to_string(),
             children: Vec::new(),
+            attributes: HashMap::new(),
         }
     }
 }
@@ -119,6 +122,40 @@ fn parse_element_content(iter: &mut Peekable<Chars>) -> Vec<Element> {
     elements
 }
 
+/// Gets a string without the quotation marks
+fn get_string(iter: &mut Peekable<Chars>) -> String {
+    assert_eq!(iter.next(), Some('"'));
+    let mut output = String::new();
+    loop {
+        match iter.next() {
+            Some('"') => break,
+            Some(v) => output.push(v),
+            None => panic!("String ran out"),
+        }
+    }
+    output
+}
+
+fn parse_attributes(iter: &mut Peekable<Chars>) -> HashMap<String, String> {
+    let mut output = HashMap::<String, String>::new();
+    loop {
+        match iter.peek() {
+            Some('>') => break,
+            Some(v) if v.is_whitespace() => {
+                iter.next();
+            }
+            Some(_) => {
+                let identifier = get_identifier(iter);
+                assert_eq!(iter.next(), Some('='));
+                let string = get_string(iter);
+                output.insert(identifier, string);
+            }
+            None => panic!("Attributes ran out"),
+        }
+    }
+    output
+}
+
 fn parse_html_element(iter: &mut Peekable<Chars>) -> Element {
     assert!(
         iter.next_if_eq(&'<').is_some(),
@@ -126,6 +163,7 @@ fn parse_html_element(iter: &mut Peekable<Chars>) -> Element {
         iter
     );
     let tag = get_identifier(iter);
+    let attributes = parse_attributes(iter);
     assert!(
         iter.next_if_eq(&'>').is_some(),
         "Expected 'Some('>')' Got: '{:?}'",
@@ -143,11 +181,12 @@ fn parse_html_element(iter: &mut Peekable<Chars>) -> Element {
         iter.next()
     );
     let closing_tag = get_identifier(iter);
-    assert!(iter.next() == Some('>'));
-    assert!(tag == closing_tag);
+    assert_eq!(iter.next(), Some('>'));
+    assert_eq!(tag, closing_tag);
 
     let mut element = Element::new(Tag::from_string(&tag).unwrap());
     element.children = children;
+    element.attributes = attributes;
     element
 }
 
