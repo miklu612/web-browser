@@ -243,6 +243,8 @@ impl Window {
         }
     }
 
+    const FONT_SIZE: f32 = 25.0;
+
     /// Transforms screen coordinates into a -1.0 - 1.0 scale
     pub fn screen_to_opengl_coordinates(&self, x: i32, y: i32) -> [f32; 2] {
         let inner_size = self.window.as_ref().unwrap().inner_size();
@@ -306,7 +308,7 @@ impl Window {
         mut y: i32,
         scale: f32,
     ) -> i32 {
-        let offset = (50.0 * scale) as usize;
+        let offset = (Self::FONT_SIZE * scale) as usize;
         let bounds = self.window.as_ref().unwrap().inner_size();
         let original_y = y;
         for i in 0..text.len() {
@@ -320,7 +322,7 @@ impl Window {
             let mut raw_x = (offset * i + offset / 2) as i32 + x;
             if raw_x > bounds.width as i32 {
                 y = (original_y as f32
-                    + (40.0 * scale) * f32::floor(raw_x as f32 / bounds.width as f32))
+                    + (Self::FONT_SIZE * scale) * f32::floor(raw_x as f32 / bounds.width as f32))
                     as i32;
                 raw_x = raw_x % bounds.width as i32 + x;
             }
@@ -375,7 +377,7 @@ impl Window {
         }
 
         // Calculate the new y position and add some spacing as well
-        (y as f32 + 40.0 * scale) as i32 + 20
+        (y as f32 + Self::FONT_SIZE * scale) as i32 + 20
     }
 
     pub fn load_font(&mut self) {
@@ -423,6 +425,37 @@ impl Window {
                         [stride_x * x as f32, 1.0 - stride_y],
                         [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 2.0],
                         [stride_x * (x as f32 + 1.0), 1.0 - stride_y],
+                    ],
+                ),
+            );
+        }
+
+        // Load the numbers
+        for x in 12..14 {
+            self.character_rects.insert(
+                (b'0' + (x - 12) as u8) as char,
+                Rectangle::with_uv(
+                    self.display.as_ref().unwrap(),
+                    [
+                        [stride_x * x as f32, 1.0 - stride_y * 2.0],
+                        [stride_x * x as f32, 1.0 - stride_y],
+                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 2.0],
+                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y],
+                    ],
+                ),
+            );
+        }
+
+        for x in 0..8 {
+            self.character_rects.insert(
+                (b'2' + x as u8) as char,
+                Rectangle::with_uv(
+                    self.display.as_ref().unwrap(),
+                    [
+                        [stride_x * x as f32, 1.0 - stride_y * 3.0],
+                        [stride_x * x as f32, 1.0 - stride_y * 2.0],
+                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 3.0],
+                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 2.0],
                     ],
                 ),
             );
