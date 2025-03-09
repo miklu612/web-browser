@@ -138,34 +138,29 @@ impl ApplicationHandler for Window {
                 .unwrap()
         };
 
-        let surface = Some(
-            unsafe {
-                display.as_ref().unwrap().create_window_surface(
-                    config,
-                    &glutin::surface::SurfaceAttributesBuilder::<WindowSurface>::new().build(
-                        raw_window_handle,
-                        NonZero::new(100).unwrap(),
-                        NonZero::new(100).unwrap(),
-                    ),
-                )
-            }
-            .unwrap(),
-        );
+        let surface = unsafe {
+            display.as_ref().unwrap().create_window_surface(
+                config,
+                &glutin::surface::SurfaceAttributesBuilder::<WindowSurface>::new().build(
+                    raw_window_handle,
+                    NonZero::new(100).unwrap(),
+                    NonZero::new(100).unwrap(),
+                ),
+            )
+        }
+        .unwrap();
 
-        let context = Some(
-            unsafe {
-                display
-                    .as_ref()
-                    .unwrap()
-                    .create_context(config, &ContextAttributes::default())
-                    .unwrap()
-                    .make_current(surface.as_ref().unwrap())
-            }
-            .unwrap(),
-        );
+        let context = unsafe {
+            display
+                .as_ref()
+                .unwrap()
+                .create_context(config, &ContextAttributes::default())
+                .unwrap()
+                .make_current(&surface)
+        }
+        .unwrap();
 
-        self.display =
-            Some(glium::backend::glutin::Display::new(context.unwrap(), surface.unwrap()).unwrap());
+        self.display = Some(glium::backend::glutin::Display::new(context, surface).unwrap());
 
         self.rect = Some(Rectangle::create(self.display.as_ref().unwrap()));
 
@@ -274,10 +269,7 @@ impl Window {
                 if element.element_type == Tag::H(1) {
                     *y =
                         self.render_text(&child.inner_text.to_ascii_uppercase(), frame, 0, *y, 2.0);
-                } else if element.element_type == Tag::Paragraph {
-                    *y =
-                        self.render_text(&child.inner_text.to_ascii_uppercase(), frame, 0, *y, 1.0);
-                } else if element.element_type == Tag::A {
+                } else if element.element_type == Tag::Paragraph || element.element_type == Tag::A {
                     *y =
                         self.render_text(&child.inner_text.to_ascii_uppercase(), frame, 0, *y, 1.0);
                 }
@@ -296,7 +288,7 @@ impl Window {
             }
         }
         let body = body.unwrap();
-        self.render_element(&body, frame, &mut &mut 30);
+        self.render_element(body, frame, &mut 30);
     }
 
     /// Returns the end of the text y coordinate
@@ -312,12 +304,9 @@ impl Window {
         let bounds = self.window.as_ref().unwrap().inner_size();
         let original_y = y;
         for i in 0..text.len() {
-            if text.chars().nth(i) == Some(' ') {
-                continue;
-            } else if text.chars().nth(i) == None {
+            if text.chars().nth(i) == Some(' ') || text.chars().nth(i).is_none() {
                 continue;
             }
-
             // Calculate the text wrap
             let mut raw_x = (offset * i + offset / 2) as i32 + x;
             if raw_x > bounds.width as i32 {

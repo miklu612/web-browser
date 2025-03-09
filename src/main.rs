@@ -15,12 +15,11 @@ fn read_file(path: &Path) -> String {
 fn main() {
     let mut args = std::env::args();
 
-    let file_name;
-    if args.len() == 2 {
-        file_name = args.nth(1).unwrap();
+    let file_name = if args.len() == 2 {
+        args.nth(1).unwrap()
     } else {
-        file_name = "./tests/index.html".to_owned();
-    }
+        "./tests/index.html".to_owned()
+    };
 
     let elements = parse_html(&read_file(Path::new(&file_name)));
     println!("{:?}", elements);
