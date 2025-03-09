@@ -253,14 +253,14 @@ impl Window {
         for child in &element.children {
             if child.element_type == Tag::PlainText {
                 if element.element_type == Tag::Header(1) {
-                    self.render_text(&child.inner_text.to_ascii_uppercase(), frame, 0, *y, 2.0);
-                    *y += 80;
+                    *y =
+                        self.render_text(&child.inner_text.to_ascii_uppercase(), frame, 0, *y, 2.0);
                 } else if element.element_type == Tag::Paragraph {
-                    self.render_text(&child.inner_text.to_ascii_uppercase(), frame, 0, *y, 1.0);
-                    *y += 40;
+                    *y =
+                        self.render_text(&child.inner_text.to_ascii_uppercase(), frame, 0, *y, 1.0);
                 } else if element.element_type == Tag::A {
-                    self.render_text(&child.inner_text.to_ascii_uppercase(), frame, 0, *y, 1.0);
-                    *y += 40;
+                    *y =
+                        self.render_text(&child.inner_text.to_ascii_uppercase(), frame, 0, *y, 1.0);
                 }
             } else {
                 self.render_element(child, frame, y);
@@ -280,15 +280,33 @@ impl Window {
         self.render_element(&body, frame, &mut &mut 30);
     }
 
-    pub fn render_text(&self, text: &str, frame: &mut Frame, x: u32, y: u32, scale: f32) {
+    /// Returns the end of the text y coordinate
+    pub fn render_text(
+        &self,
+        text: &str,
+        frame: &mut Frame,
+        x: u32,
+        mut y: u32,
+        scale: f32,
+    ) -> u32 {
         let offset = (50.0 * scale) as usize;
+        let bounds = self.window.as_ref().unwrap().inner_size();
+        let original_y = y;
         for i in 0..text.len() {
             if text.chars().nth(i) == Some(' ') {
                 continue;
             }
 
-            let coordinates =
-                self.screen_to_opengl_coordinates((offset * i + offset / 2) as u32 + x, y);
+            // Calculate the text wrap
+            let mut raw_x = (offset * i + offset / 2) as u32 + x;
+            if raw_x > bounds.width {
+                y = (original_y as f32
+                    + (40.0 * scale) * f32::floor(raw_x as f32 / bounds.width as f32))
+                    as u32;
+                raw_x = raw_x % bounds.width + x;
+            }
+
+            let coordinates = self.screen_to_opengl_coordinates(raw_x, y);
 
             let size = {
                 let size = self.screen_to_relative_coordinates(offset as u32, offset as u32);
@@ -329,6 +347,7 @@ impl Window {
                 )
                 .unwrap();
         }
+        (y as f32 + 40.0 * scale) as u32
     }
 
     pub fn load_font(&mut self) {
