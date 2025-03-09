@@ -327,7 +327,7 @@ impl Window {
                 raw_x = raw_x % bounds.width as i32 + x;
             }
 
-            let mut current_y = y - self.scroll_y;
+            let current_y = y - self.scroll_y;
 
             // Stop rendering offscreen elements
             if current_y > bounds.height as i32 || current_y < 0 {

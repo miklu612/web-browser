@@ -151,7 +151,7 @@ fn parse_element_content(iter: &mut Peekable<Chars>) -> Vec<Element> {
     // Strip all of the inner text content
     elements
         .iter_mut()
-        .for_each(|x| x.inner_text = x.inner_text.trim().to_owned());
+        .for_each(|x| x.inner_text = x.inner_text.trim().to_owned().replace("&nbsp;", " "));
 
     // Filter out empty PlainText elements
     elements.retain(|x| {
