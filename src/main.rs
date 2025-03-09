@@ -13,7 +13,16 @@ fn read_file(path: &Path) -> String {
 }
 
 fn main() {
-    let elements = parse_html(&read_file(&Path::new("./tests/index.html")));
+    let mut args = std::env::args();
+
+    let file_name;
+    if args.len() == 2 {
+        file_name = args.nth(1).unwrap();
+    } else {
+        file_name = "./tests/index.html".to_owned();
+    }
+
+    let elements = parse_html(&read_file(&Path::new(&file_name)));
     assert!(elements.len() == 1);
     assert!(elements[0].element_type == Tag::Html);
     assert!(elements[0].children.len() == 1);
