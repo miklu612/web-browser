@@ -22,7 +22,7 @@ fn main() {
         file_name = "./tests/index.html".to_owned();
     }
 
-    let elements = parse_html(&read_file(&Path::new(&file_name)));
+    let elements = parse_html(&read_file(Path::new(&file_name)));
     assert!(elements.len() == 1);
     assert!(elements[0].element_type == Tag::Html);
     assert!(elements[0].children.len() == 1);

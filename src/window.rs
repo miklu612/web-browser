@@ -3,26 +3,24 @@ use glium::backend::glutin::glutin;
 use glium::{
     backend::glutin::Display,
     glutin::{
-        context::{ContextAttributes, NotCurrentGlContext, PossiblyCurrentGlContext},
+        context::{ContextAttributes, NotCurrentGlContext},
         display::GlDisplay,
         surface::WindowSurface,
     },
     implement_vertex,
     index::PrimitiveType,
     program,
-    texture::{MipmapsOption, RawImage2d, UncompressedFloatFormat},
-    uniform,
-    uniforms::{ImageUnitFormat, MagnifySamplerFilter, MinifySamplerFilter},
-    Blend, DrawParameters, Frame, IndexBuffer, Program, Surface, Texture2d, VertexBuffer,
+    texture::RawImage2d,
+    uniform, Blend, DrawParameters, Frame, IndexBuffer, Program, Surface, Texture2d, VertexBuffer,
 };
 use image::ImageReader;
-use nalgebra::{Matrix4, Orthographic3, Vector3, Vector4};
-use std::{borrow::Borrow, collections::HashMap, num::NonZero, path::Path};
+use nalgebra::{Matrix4, Vector3};
+use std::{collections::HashMap, num::NonZero};
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
-    raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle},
+    raw_window_handle::{HasDisplayHandle, HasWindowHandle},
     window::{Window as WinitWindow, WindowId},
 };
 
@@ -109,8 +107,20 @@ impl ApplicationHandler for Window {
                 .unwrap(),
         );
 
-        let raw_display_handle = self.window.as_ref().unwrap().raw_display_handle().unwrap();
-        let raw_window_handle = self.window.as_ref().unwrap().raw_window_handle().unwrap();
+        let raw_display_handle = self
+            .window
+            .as_ref()
+            .unwrap()
+            .display_handle()
+            .unwrap()
+            .as_raw();
+        let raw_window_handle = self
+            .window
+            .as_ref()
+            .unwrap()
+            .window_handle()
+            .unwrap()
+            .as_raw();
 
         let display = Some(glutin::display::Display::Egl(
             unsafe { glutin::api::egl::display::Display::new(raw_display_handle) }.unwrap(),
@@ -186,8 +196,6 @@ impl ApplicationHandler for Window {
         );
 
         self.load_font();
-
-        let inner_size = self.window.as_ref().unwrap().inner_size();
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
@@ -281,7 +289,7 @@ impl Window {
             }
 
             let coordinates =
-                self.screen_to_opengl_coordinates((offset * i + offset / 2) as u32 + x, y as u32);
+                self.screen_to_opengl_coordinates((offset * i + offset / 2) as u32 + x, y);
 
             let size = {
                 let size = self.screen_to_relative_coordinates(offset as u32, offset as u32);
@@ -345,7 +353,7 @@ impl Window {
         // Load the first row of letters
         for x in 0..14 {
             self.character_rects.insert(
-                ('A' as u8 + x as u8) as char,
+                (b'A' + x as u8) as char,
                 Rectangle::with_uv(
                     self.display.as_ref().unwrap(),
                     [
@@ -361,7 +369,7 @@ impl Window {
         // Load the second row of letters
         for x in 0..12 {
             self.character_rects.insert(
-                ('O' as u8 + x as u8) as char,
+                (b'O' + x as u8) as char,
                 Rectangle::with_uv(
                     self.display.as_ref().unwrap(),
                     [

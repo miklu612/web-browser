@@ -61,6 +61,8 @@ pub fn get_identifier(iter: &mut Peekable<Chars>) -> String {
     string
 }
 
+/// Gets text content of an element when the iterator is set inside of it.
+#[allow(dead_code)]
 pub fn get_text(iter: &mut Peekable<Chars>) -> String {
     let mut string = String::new();
     while let Some(character) = iter.peek() {
@@ -74,7 +76,7 @@ pub fn get_text(iter: &mut Peekable<Chars>) -> String {
     string
 }
 
-fn parse_element_content(mut iter: &mut Peekable<Chars>, parent_tag: &str) -> Vec<Element> {
+fn parse_element_content(iter: &mut Peekable<Chars>) -> Vec<Element> {
     let mut elements: Vec<Element> = Vec::new();
     while let Some(character) = iter.peek() {
         match character {
@@ -83,7 +85,7 @@ fn parse_element_content(mut iter: &mut Peekable<Chars>, parent_tag: &str) -> Ve
                     break;
                 }
                 Some(v) if v.is_alphabetic() => {
-                    let child_element = parse_html_element(&mut iter);
+                    let child_element = parse_html_element(iter);
                     elements.push(child_element);
                 }
                 Some(v) => panic!("Unknown character after '<' : {}", v),
@@ -117,19 +119,19 @@ fn parse_element_content(mut iter: &mut Peekable<Chars>, parent_tag: &str) -> Ve
     elements
 }
 
-fn parse_html_element(mut iter: &mut Peekable<Chars>) -> Element {
+fn parse_html_element(iter: &mut Peekable<Chars>) -> Element {
     assert!(
         iter.next_if_eq(&'<').is_some(),
         "Expected 'Some('<')' Got: '{:?}'",
         iter
     );
-    let tag = get_identifier(&mut iter);
+    let tag = get_identifier(iter);
     assert!(
         iter.next_if_eq(&'>').is_some(),
         "Expected 'Some('>')' Got: '{:?}'",
         iter
     );
-    let children = parse_element_content(&mut iter, &tag);
+    let children = parse_element_content(iter);
     assert!(
         iter.next_if_eq(&'<').is_some(),
         "Expected 'Some(<)' Got: '{:?}'",
@@ -140,7 +142,7 @@ fn parse_html_element(mut iter: &mut Peekable<Chars>) -> Element {
         "Expected 'Some(/)' Got: '{:?}'",
         iter.next()
     );
-    let closing_tag = get_identifier(&mut iter);
+    let closing_tag = get_identifier(iter);
     assert!(iter.next() == Some('>'));
     assert!(tag == closing_tag);
 
