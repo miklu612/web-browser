@@ -249,36 +249,35 @@ impl Window {
         self.open();
     }
 
-    pub fn render_current_page(&self, frame: &mut Frame) {
-        let body = &self.elements[0].children[0];
-        assert!(body.element_type == Tag::Body);
-
-        let mut y = 30;
-        for child in &body.children {
-            for child_of_child in &child.children {
-                if child.element_type == Tag::Header(1) {
-                    if child_of_child.element_type == Tag::PlainText {
-                        self.render_text(
-                            &child_of_child.inner_text.to_ascii_uppercase(),
-                            frame,
-                            0,
-                            y,
-                            2.0,
-                        );
-                        y += 80;
-                    }
-                } else {
-                    self.render_text(
-                        &child_of_child.inner_text.to_ascii_uppercase(),
-                        frame,
-                        0,
-                        y,
-                        1.0,
-                    );
-                    y += 40;
+    pub fn render_element(&self, element: &Element, frame: &mut Frame, y: &mut u32) {
+        for child in &element.children {
+            if child.element_type == Tag::PlainText {
+                if element.element_type == Tag::Header(1) {
+                    self.render_text(&child.inner_text.to_ascii_uppercase(), frame, 0, *y, 2.0);
+                    *y += 80;
+                } else if element.element_type == Tag::Paragraph {
+                    self.render_text(&child.inner_text.to_ascii_uppercase(), frame, 0, *y, 1.0);
+                    *y += 40;
+                } else if element.element_type == Tag::A {
+                    self.render_text(&child.inner_text.to_ascii_uppercase(), frame, 0, *y, 1.0);
+                    *y += 40;
                 }
+            } else {
+                self.render_element(child, frame, y);
             }
         }
+    }
+
+    pub fn render_current_page(&self, frame: &mut Frame) {
+        let mut body = None;
+        for element in &self.elements[0].children {
+            if element.element_type == Tag::Body {
+                body = Some(element);
+                break;
+            }
+        }
+        let body = body.unwrap();
+        self.render_element(&body, frame, &mut &mut 30);
     }
 
     pub fn render_text(&self, text: &str, frame: &mut Frame, x: u32, y: u32, scale: f32) {

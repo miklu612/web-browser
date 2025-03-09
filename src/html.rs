@@ -8,6 +8,10 @@ pub enum Tag {
     Body,
     Html,
     Paragraph,
+    Title,
+    Meta,
+    Head,
+    A,
 }
 
 impl Tag {
@@ -18,6 +22,10 @@ impl Tag {
             "body" => Ok(Tag::Body),
             "html" => Ok(Tag::Html),
             "p" => Ok(Tag::Paragraph),
+            "title" => Ok(Tag::Title),
+            "meta" => Ok(Tag::Meta),
+            "head" => Ok(Tag::Head),
+            "a" => Ok(Tag::A),
             v => Err(format!("Unknown tag: {}", v)),
         }
     }
@@ -54,7 +62,10 @@ impl Element {
 pub fn get_identifier(iter: &mut Peekable<Chars>) -> String {
     let mut string = String::new();
     while let Some(character) = iter.peek() {
-        if character.is_alphabetic() || (character.is_numeric() && !string.is_empty()) {
+        if character.is_alphabetic()
+            || (character.is_numeric() && !string.is_empty())
+            || *character == '-'
+        {
             string.push(*character);
             iter.next();
         } else {
@@ -141,6 +152,7 @@ fn parse_attributes(iter: &mut Peekable<Chars>) -> HashMap<String, String> {
     loop {
         match iter.peek() {
             Some('>') => break,
+            Some('/') => break,
             Some(v) if v.is_whitespace() => {
                 iter.next();
             }
@@ -164,11 +176,21 @@ fn parse_html_element(iter: &mut Peekable<Chars>) -> Element {
     );
     let tag = get_identifier(iter);
     let attributes = parse_attributes(iter);
-    assert!(
-        iter.next_if_eq(&'>').is_some(),
-        "Expected 'Some('>')' Got: '{:?}'",
-        iter
-    );
+
+    match iter.peek() {
+        Some('/') => {
+            iter.next();
+            assert_eq!(iter.next(), Some('>'));
+            let mut element = Element::new(Tag::from_string(&tag).unwrap());
+            element.attributes = attributes;
+            return element;
+        }
+        Some('>') => {
+            iter.next();
+        }
+        _ => panic!("Expected more after attributes"),
+    }
+
     let children = parse_element_content(iter);
     assert!(
         iter.next_if_eq(&'<').is_some(),
@@ -197,9 +219,12 @@ fn parse_html_iter(iter: &mut Peekable<Chars>) -> Vec<Element> {
         match iter.peek() {
             Some('<') => {
                 if iter.clone().nth(1) == Some('!') {
-                    let doctype_string = "<!DOCTYPE html>";
+                    let doctype_string = "<!DOCTYPE html>".to_lowercase();
                     for character in doctype_string.chars() {
-                        assert_eq!(iter.next(), Some(character));
+                        assert_eq!(
+                            iter.next().unwrap().to_lowercase().next().unwrap(),
+                            character
+                        );
                     }
                 } else {
                     let element = parse_html_element(iter);

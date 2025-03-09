@@ -23,10 +23,9 @@ fn main() {
     }
 
     let elements = parse_html(&read_file(Path::new(&file_name)));
+    println!("{:?}", elements);
     assert!(elements.len() == 1);
     assert!(elements[0].element_type == Tag::Html);
-    assert!(elements[0].children.len() == 1);
-    assert!(elements[0].children[0].element_type == Tag::Body);
 
     let mut window = Window::new();
     window.render(elements);
