@@ -3,7 +3,7 @@ use std::{collections::HashMap, iter::Peekable, str::Chars};
 #[derive(Debug, PartialEq)]
 pub enum Tag {
     PlainText,
-    Header(u32),
+    H(u32),
     Div,
     Body,
     Html,
@@ -17,9 +17,12 @@ pub enum Tag {
     Input,
     Table,
     Script,
+    Header,
     Form,
     Img,
+    Li,
     Td,
+    Ul,
     Br,
     Tr,
     A,
@@ -30,12 +33,13 @@ pub enum Tag {
 impl Tag {
     pub fn from_string(tag: &str) -> Result<Self, String> {
         match tag {
-            "h1" => Ok(Tag::Header(1)),
+            "h1" => Ok(Tag::H(1)),
             "div" => Ok(Tag::Div),
             "body" => Ok(Tag::Body),
             "html" => Ok(Tag::Html),
             "p" => Ok(Tag::Paragraph),
             "title" => Ok(Tag::Title),
+            "header" => Ok(Tag::Header),
             "meta" => Ok(Tag::Meta),
             "head" => Ok(Tag::Head),
             "link" => Ok(Tag::Link),
@@ -44,7 +48,9 @@ impl Tag {
             "b" => Ok(Tag::B),
             "u" => Ok(Tag::U),
             "td" => Ok(Tag::Td),
+            "ul" => Ok(Tag::Ul),
             "tr" => Ok(Tag::Tr),
+            "li" => Ok(Tag::Li),
             "br" => Ok(Tag::Br),
             "table" => Ok(Tag::Table),
             "center" => Ok(Tag::Center),

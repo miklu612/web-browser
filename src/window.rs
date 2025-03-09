@@ -18,8 +18,9 @@ use nalgebra::{Matrix4, Vector3};
 use std::{collections::HashMap, num::NonZero};
 use winit::{
     application::ApplicationHandler,
-    event::WindowEvent,
+    event::{ElementState, KeyEvent, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    keyboard::Key,
     raw_window_handle::{HasDisplayHandle, HasWindowHandle},
     window::{Window as WinitWindow, WindowId},
 };
@@ -97,6 +98,7 @@ pub struct Window {
     font_texture: Option<Texture2d>,
     character_rects: HashMap<char, Rectangle>,
     elements: Vec<Element>,
+    scroll_y: i32,
 }
 
 impl ApplicationHandler for Window {
@@ -208,6 +210,20 @@ impl ApplicationHandler for Window {
                 frame.finish().expect("Failed to finish frame draw");
                 self.window.as_ref().unwrap().request_redraw();
             }
+            WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        logical_key: key,
+                        state: ElementState::Pressed,
+                        ..
+                    },
+                ..
+            } => match key.as_ref() {
+                Key::Character("j") => self.scroll_y += 10,
+                Key::Character("k") => self.scroll_y -= 10,
+                _ => (),
+            },
+
             _ => (),
         }
     }
@@ -223,11 +239,12 @@ impl Window {
             font_texture: None,
             character_rects: HashMap::new(),
             elements: Vec::new(),
+            scroll_y: 0,
         }
     }
 
     /// Transforms screen coordinates into a -1.0 - 1.0 scale
-    pub fn screen_to_opengl_coordinates(&self, x: u32, y: u32) -> [f32; 2] {
+    pub fn screen_to_opengl_coordinates(&self, x: i32, y: i32) -> [f32; 2] {
         let inner_size = self.window.as_ref().unwrap().inner_size();
         [
             (x as f32 / inner_size.width as f32 - 0.5) * 2.0,
@@ -236,7 +253,7 @@ impl Window {
     }
 
     /// Transforms screen coordinates into a 0.0 - 1.0 scale
-    pub fn screen_to_relative_coordinates(&self, x: u32, y: u32) -> [f32; 2] {
+    pub fn screen_to_relative_coordinates(&self, x: i32, y: i32) -> [f32; 2] {
         let inner_size = self.window.as_ref().unwrap().inner_size();
         [
             x as f32 / inner_size.width as f32,
@@ -249,10 +266,10 @@ impl Window {
         self.open();
     }
 
-    pub fn render_element(&self, element: &Element, frame: &mut Frame, y: &mut u32) {
+    pub fn render_element(&self, element: &Element, frame: &mut Frame, y: &mut i32) {
         for child in &element.children {
             if child.element_type == Tag::PlainText {
-                if element.element_type == Tag::Header(1) {
+                if element.element_type == Tag::H(1) {
                     *y =
                         self.render_text(&child.inner_text.to_ascii_uppercase(), frame, 0, *y, 2.0);
                 } else if element.element_type == Tag::Paragraph {
@@ -285,10 +302,10 @@ impl Window {
         &self,
         text: &str,
         frame: &mut Frame,
-        x: u32,
-        mut y: u32,
+        x: i32,
+        mut y: i32,
         scale: f32,
-    ) -> u32 {
+    ) -> i32 {
         let offset = (50.0 * scale) as usize;
         let bounds = self.window.as_ref().unwrap().inner_size();
         let original_y = y;
@@ -300,18 +317,25 @@ impl Window {
             }
 
             // Calculate the text wrap
-            let mut raw_x = (offset * i + offset / 2) as u32 + x;
-            if raw_x > bounds.width {
+            let mut raw_x = (offset * i + offset / 2) as i32 + x;
+            if raw_x > bounds.width as i32 {
                 y = (original_y as f32
                     + (40.0 * scale) * f32::floor(raw_x as f32 / bounds.width as f32))
-                    as u32;
-                raw_x = raw_x % bounds.width + x;
+                    as i32;
+                raw_x = raw_x % bounds.width as i32 + x;
             }
 
-            let coordinates = self.screen_to_opengl_coordinates(raw_x, y);
+            let mut current_y = y - self.scroll_y;
+
+            // Stop rendering offscreen elements
+            if current_y > bounds.height as i32 || current_y < 0 {
+                continue;
+            }
+
+            let coordinates = self.screen_to_opengl_coordinates(raw_x, current_y);
 
             let size = {
-                let size = self.screen_to_relative_coordinates(offset as u32, offset as u32);
+                let size = self.screen_to_relative_coordinates(offset as i32, offset as i32);
                 Vector3::new(size[0], size[1], 1.0)
             };
 
@@ -349,7 +373,9 @@ impl Window {
                 )
                 .unwrap();
         }
-        (y as f32 + 40.0 * scale) as u32
+
+        // Calculate the new y position and add some spacing as well
+        (y as f32 + 40.0 * scale) as i32 + 20
     }
 
     pub fn load_font(&mut self) {
