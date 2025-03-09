@@ -248,16 +248,33 @@ impl Window {
         let mut y = 30;
         for child in &body.children {
             for child_of_child in &child.children {
-                if child_of_child.element_type == Tag::PlainText {
-                    self.render_text(&child_of_child.inner_text.to_ascii_uppercase(), frame, 0, y);
+                if child.element_type == Tag::Header(1) {
+                    if child_of_child.element_type == Tag::PlainText {
+                        self.render_text(
+                            &child_of_child.inner_text.to_ascii_uppercase(),
+                            frame,
+                            0,
+                            y,
+                            2.0,
+                        );
+                        y += 80;
+                    }
+                } else {
+                    self.render_text(
+                        &child_of_child.inner_text.to_ascii_uppercase(),
+                        frame,
+                        0,
+                        y,
+                        1.0,
+                    );
                     y += 40;
                 }
             }
         }
     }
 
-    pub fn render_text(&self, text: &str, frame: &mut Frame, x: u32, y: u32) {
-        let offset = 50;
+    pub fn render_text(&self, text: &str, frame: &mut Frame, x: u32, y: u32, scale: f32) {
+        let offset = (50.0 * scale) as usize;
         for i in 0..text.len() {
             if text.chars().nth(i) == Some(' ') {
                 continue;

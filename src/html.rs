@@ -7,6 +7,7 @@ pub enum Tag {
     Div,
     Body,
     Html,
+    Paragraph,
 }
 
 impl Tag {
@@ -16,6 +17,7 @@ impl Tag {
             "div" => Ok(Tag::Div),
             "body" => Ok(Tag::Body),
             "html" => Ok(Tag::Html),
+            "p" => Ok(Tag::Paragraph),
             v => Err(format!("Unknown tag: {}", v)),
         }
     }
