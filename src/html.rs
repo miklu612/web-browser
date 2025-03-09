@@ -10,8 +10,21 @@ pub enum Tag {
     Paragraph,
     Title,
     Meta,
+    Link,
     Head,
+    Span,
+    Center,
+    Input,
+    Table,
+    Script,
+    Form,
+    Img,
+    Td,
+    Br,
+    Tr,
     A,
+    B,
+    U,
 }
 
 impl Tag {
@@ -25,7 +38,20 @@ impl Tag {
             "title" => Ok(Tag::Title),
             "meta" => Ok(Tag::Meta),
             "head" => Ok(Tag::Head),
+            "link" => Ok(Tag::Link),
+            "img" => Ok(Tag::Img),
             "a" => Ok(Tag::A),
+            "b" => Ok(Tag::B),
+            "u" => Ok(Tag::U),
+            "td" => Ok(Tag::Td),
+            "tr" => Ok(Tag::Tr),
+            "br" => Ok(Tag::Br),
+            "table" => Ok(Tag::Table),
+            "center" => Ok(Tag::Center),
+            "span" => Ok(Tag::Span),
+            "input" => Ok(Tag::Input),
+            "form" => Ok(Tag::Form),
+            "script" => Ok(Tag::Script),
             v => Err(format!("Unknown tag: {}", v)),
         }
     }
@@ -133,13 +159,17 @@ fn parse_element_content(iter: &mut Peekable<Chars>) -> Vec<Element> {
     elements
 }
 
+fn is_quotation(character: char) -> bool {
+    character == '\'' || character == '"'
+}
+
 /// Gets a string without the quotation marks
 fn get_string(iter: &mut Peekable<Chars>) -> String {
-    assert_eq!(iter.next(), Some('"'));
+    assert!(is_quotation(iter.next().unwrap()));
     let mut output = String::new();
     loop {
         match iter.next() {
-            Some('"') => break,
+            Some(v) if is_quotation(v) => break,
             Some(v) => output.push(v),
             None => panic!("String ran out"),
         }
@@ -176,6 +206,14 @@ fn parse_html_element(iter: &mut Peekable<Chars>) -> Element {
     );
     let tag = get_identifier(iter);
     let attributes = parse_attributes(iter);
+
+    // These elements for whatever reason aren't self terminating sometimes, so we gotta check for them
+    if tag == "link" || tag == "meta" || tag == "img" || tag == "input" || tag == "br" {
+        assert_eq!(iter.next(), Some('>'));
+        let mut element = Element::new(Tag::from_string(&tag).unwrap());
+        element.attributes = attributes;
+        return element;
+    }
 
     match iter.peek() {
         Some('/') => {

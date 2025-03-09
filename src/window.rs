@@ -295,6 +295,8 @@ impl Window {
         for i in 0..text.len() {
             if text.chars().nth(i) == Some(' ') {
                 continue;
+            } else if text.chars().nth(i) == None {
+                continue;
             }
 
             // Calculate the text wrap
