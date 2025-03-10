@@ -102,10 +102,11 @@ impl ElementRect {
                 }
             }
         }
+        let mut child_height = 0;
         for child in &self.children {
-            height = i32::max(height, child.get_height());
+            child_height += child.get_height();
         }
-        height
+        i32::max(height, child_height)
     }
 
     pub fn from_text(
