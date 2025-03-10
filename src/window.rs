@@ -256,7 +256,7 @@ impl Window {
         }
     }
 
-    const FONT_SIZE: f32 = 25.0;
+    const FONT_SIZE: f32 = 30.0;
 
     /// Transforms screen coordinates into a -1.0 - 1.0 scale
     pub fn screen_to_opengl_coordinates(&self, x: i32, y: i32) -> [f32; 2] {
@@ -281,51 +281,21 @@ impl Window {
         self.open();
     }
 
-    pub fn render_element(&self, element: &Element, frame: &mut Frame, y: &mut i32) {
-        for child in &element.children {
-            if child.element_type == Tag::PlainText {
-                if element.element_type == Tag::H(1) {
-                    *y = self.render_text(
-                        &child.inner_text.to_ascii_uppercase(),
-                        frame,
-                        0,
-                        *y,
-                        2.0,
-                        Color::Black,
-                    );
-                } else if element.element_type == Tag::Paragraph {
-                    *y = self.render_text(
-                        &child.inner_text.to_ascii_uppercase(),
-                        frame,
-                        0,
-                        *y,
-                        1.0,
-                        Color::Black,
-                    );
-                } else if element.element_type == Tag::A {
-                    *y = self.render_text(
-                        &child.inner_text.to_ascii_uppercase(),
-                        frame,
-                        0,
-                        *y,
-                        1.0,
-                        Color::LinkBlue,
-                    );
-                }
-            } else {
-                self.render_element(child, frame, y);
-            }
-        }
-    }
-
-    pub fn render_words(&self, words: &Vec<Word>, frame: &mut Frame, position: Position) {
+    pub fn render_words(
+        &self,
+        words: &Vec<Word>,
+        frame: &mut Frame,
+        position: Position,
+        font_size: Size,
+    ) {
         for word in words {
             let mut character_position = Position::new(word.position.x, word.position.y);
+            let scaling = font_size.width as f32 / Self::FONT_SIZE;
             for character in word.word.chars() {
                 let gl_position =
                     self.screen_to_opengl_coordinates(character_position.x, character_position.y);
-                self.render_character(character, frame, gl_position[0], gl_position[1], 1.0);
-                character_position.x += Self::FONT_SIZE as i32;
+                self.render_character(character, frame, gl_position[0], gl_position[1], scaling);
+                character_position.x += font_size.width;
             }
         }
     }
@@ -337,7 +307,7 @@ impl Window {
         position: Position,
     ) {
         if let Some(words) = element_rect.words.as_ref() {
-            self.render_words(words, frame, position);
+            self.render_words(words, frame, position, element_rect.font_size);
         }
         for child in &element_rect.children {
             let new_position =
@@ -374,6 +344,11 @@ impl Window {
     }
 
     pub fn render_character(&self, character: char, frame: &mut Frame, x: f32, y: f32, scale: f32) {
+        // If the character is not visibile, don't render it.
+        if y < -1.0 || y > 1.0 {
+            return;
+        }
+
         let size = self.screen_to_relative_coordinates(
             (Self::FONT_SIZE * scale) as i32,
             (Self::FONT_SIZE * scale) as i32,
@@ -406,87 +381,6 @@ impl Window {
                 },
             )
             .unwrap();
-    }
-
-    /// Returns the end of the text y coordinate
-    pub fn render_text(
-        &self,
-        text: &str,
-        frame: &mut Frame,
-        x: i32,
-        mut y: i32,
-        scale: f32,
-        color: Color,
-    ) -> i32 {
-        let offset = (Self::FONT_SIZE * scale) as usize;
-        let bounds = self.window.as_ref().unwrap().inner_size();
-        let original_y = y;
-        let color_add = color.to_color();
-        for i in 0..text.len() {
-            if text.chars().nth(i) == Some(' ') || text.chars().nth(i).is_none() {
-                continue;
-            }
-            // Calculate the text wrap
-            let mut raw_x = (offset * i + offset / 2) as i32 + x;
-            if raw_x > bounds.width as i32 {
-                y = (original_y as f32
-                    + (Self::FONT_SIZE * scale) * f32::floor(raw_x as f32 / bounds.width as f32))
-                    as i32;
-                raw_x = raw_x % bounds.width as i32 + x;
-            }
-
-            let current_y = y - self.scroll_y;
-
-            // Stop rendering offscreen elements
-            if current_y > bounds.height as i32 || current_y < 0 {
-                continue;
-            }
-
-            let coordinates = self.screen_to_opengl_coordinates(raw_x, current_y);
-
-            let size = {
-                let size = self.screen_to_relative_coordinates(offset as i32, offset as i32);
-                Vector3::new(size[0], size[1], 1.0)
-            };
-
-            let mat4 = Matrix4::identity()
-                .append_nonuniform_scaling(&size)
-                .append_translation(&Vector3::new(coordinates[0], coordinates[1], 0.0));
-
-            let compiled_matrix = TryInto::<[[f32; 4]; 4]>::try_into(mat4.data.0).unwrap();
-
-            let uniforms = uniform![
-                transform: compiled_matrix,
-                font_texture: self.font_texture
-                    .as_ref()
-                    .unwrap(),
-                color_addition: color_add
-            ];
-
-            frame
-                .draw(
-                    &self
-                        .character_rects
-                        .get(&text.chars().nth(i).unwrap())
-                        .unwrap_or(self.character_rects.get(&'A').unwrap())
-                        .vao,
-                    &self
-                        .character_rects
-                        .get(&text.chars().nth(i).unwrap())
-                        .unwrap_or(self.character_rects.get(&'A').unwrap())
-                        .ebo,
-                    self.program.as_ref().unwrap(),
-                    &uniforms,
-                    &DrawParameters {
-                        blend: Blend::alpha_blending(),
-                        ..Default::default()
-                    },
-                )
-                .unwrap();
-        }
-
-        // Calculate the new y position and add some spacing as well
-        (y as f32 + Self::FONT_SIZE * scale) as i32 + 20
     }
 
     pub fn load_font(&mut self) {

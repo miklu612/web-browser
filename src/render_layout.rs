@@ -18,13 +18,20 @@ impl Position {
 /// A generic size vector implementation
 #[derive(Copy, Clone, Debug)]
 pub struct Size {
-    width: i32,
-    height: i32,
+    pub width: i32,
+    pub height: i32,
 }
 
 impl Size {
     pub fn new(width: i32, height: i32) -> Self {
         Self { width, height }
+    }
+
+    pub fn scaled(&self, scale: f32) -> Self {
+        Self {
+            width: (self.width as f32 * scale) as i32,
+            height: (self.height as f32 * scale) as i32,
+        }
     }
 }
 
@@ -63,17 +70,22 @@ impl ElementRect {
                 font_size,
             )
         } else {
+            let mut new_font_size = if element.element_type == Tag::H(1) {
+                font_size.scaled(2.0)
+            } else {
+                font_size
+            };
             let mut children = Vec::new();
             let mut last_position = position;
             for child in &element.children {
-                let rect = ElementRect::from_element(&child, last_position, size, font_size);
+                let rect = ElementRect::from_element(&child, last_position, size, new_font_size);
                 last_position.y += rect.get_height();
                 children.push(rect);
             }
             ElementRect {
                 position,
                 size,
-                font_size,
+                font_size: new_font_size,
                 tag: element.element_type,
                 words: None,
                 children: children,
@@ -85,8 +97,8 @@ impl ElementRect {
         let mut height = 0;
         if let Some(words) = self.words.as_ref() {
             for word in words {
-                if word.position.y + 20 > height {
-                    height = word.position.y - self.position.y + 20;
+                if word.position.y + self.font_size.height > height {
+                    height = word.position.y - self.position.y + self.font_size.height;
                 }
             }
         }
@@ -110,7 +122,7 @@ impl ElementRect {
         let mut current_x = position.x;
         let mut current_y = position.y;
         for word in words {
-            if current_x > size.width {
+            if current_x + word.len() as i32 * font_size.width > size.width {
                 current_x = position.x;
                 current_y += font_size.height;
             }
