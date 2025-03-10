@@ -232,8 +232,8 @@ impl ApplicationHandler for Window {
                     },
                 ..
             } => match key.as_ref() {
-                Key::Character("j") => self.scroll_y += 10,
-                Key::Character("k") => self.scroll_y -= 10,
+                Key::Character("j") => self.scroll_y -= 10,
+                Key::Character("k") => self.scroll_y += 10,
                 _ => (),
             },
 
@@ -289,7 +289,8 @@ impl Window {
         font_size: Size,
     ) {
         for word in words {
-            let mut character_position = Position::new(word.position.x, word.position.y);
+            let mut character_position =
+                Position::new(word.position.x + position.x, word.position.y + position.y);
             let scaling = font_size.width as f32 / Self::FONT_SIZE;
             for character in word.word.chars() {
                 let gl_position =
@@ -304,20 +305,26 @@ impl Window {
         &self,
         element_rect: &ElementRect,
         frame: &mut Frame,
-        position: Position,
+        parent_position: Position,
     ) {
         if let Some(words) = element_rect.words.as_ref() {
-            self.render_words(words, frame, position, element_rect.font_size);
+            self.render_words(words, frame, parent_position, element_rect.font_size);
         }
         for child in &element_rect.children {
-            let new_position =
-                Position::new(position.x + child.position.x, position.y + child.position.y);
+            let new_position = Position::new(
+                parent_position.x + child.position.x,
+                parent_position.y + child.position.y,
+            );
             self.render_element_rect_with_offset(&child, frame, new_position);
         }
     }
 
     pub fn render_element_rect(&self, element_rect: &ElementRect, frame: &mut Frame) {
-        self.render_element_rect_with_offset(element_rect, frame, Position::new(0, 0));
+        self.render_element_rect_with_offset(
+            element_rect,
+            frame,
+            Position::new(Self::FONT_SIZE as i32, self.scroll_y),
+        );
     }
 
     pub fn render_current_page(&self, frame: &mut Frame) {
@@ -337,7 +344,7 @@ impl Window {
         let inner_size = self.window.as_ref().unwrap().inner_size();
         ElementRect::from_element(
             body,
-            Position::new(20, 20),
+            Position::new(10, 10),
             Size::new(inner_size.width as i32 - 20, 9999),
             Size::new(Self::FONT_SIZE as i32, Self::FONT_SIZE as i32),
         )

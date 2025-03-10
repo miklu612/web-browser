@@ -76,7 +76,7 @@ impl ElementRect {
                 font_size
             };
             let mut children = Vec::new();
-            let mut last_position = position;
+            let mut last_position = Position::new(0, 0);
             for child in &element.children {
                 let rect = ElementRect::from_element(&child, last_position, size, new_font_size);
                 last_position.y += rect.get_height();
@@ -98,7 +98,7 @@ impl ElementRect {
         if let Some(words) = self.words.as_ref() {
             for word in words {
                 if word.position.y + self.font_size.height > height {
-                    height = word.position.y - self.position.y + self.font_size.height;
+                    height = word.position.y + self.font_size.height;
                 }
             }
         }
@@ -120,11 +120,11 @@ impl ElementRect {
 
         let mut element_words = Vec::new();
 
-        let mut current_x = position.x;
-        let mut current_y = position.y;
+        let mut current_x = 0;
+        let mut current_y = 0;
         for word in words {
             if current_x + word.len() as i32 * font_size.width > size.width {
-                current_x = position.x;
+                current_x = 0;
                 current_y += font_size.height;
             }
             element_words.push(Word {
