@@ -1,4 +1,9 @@
 //! This module handles the layout of HTML document when it is rendered onto the screen.
+//!
+//! This system works with rectangles. A rectangle is given a width and a height which will tell
+//! how the elements fit inside of the rectangle. This is done automatically. All children
+//! positions are relative to the parent. And their children are relative to their parent all the
+//! way down until there are no children.
 
 use crate::html::{Element, Tag};
 
