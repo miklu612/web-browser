@@ -4,6 +4,7 @@ use std::{fs::File, io::prelude::Read, path::Path};
 use window::Window;
 
 mod html;
+mod render_layout;
 mod requests;
 mod window;
 

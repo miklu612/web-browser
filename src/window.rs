@@ -1,4 +1,5 @@
 use crate::html::{Element, Tag};
+use crate::render_layout::{ElementRect, Position, Size, Word};
 use glium::backend::glutin::glutin;
 use glium::{
     backend::glutin::Display,
@@ -317,7 +318,44 @@ impl Window {
         }
     }
 
+    pub fn render_words(&self, words: &Vec<Word>, frame: &mut Frame, position: Position) {
+        for word in words {
+            let mut character_position = Position::new(word.position.x, word.position.y);
+            for character in word.word.chars() {
+                let gl_position =
+                    self.screen_to_opengl_coordinates(character_position.x, character_position.y);
+                self.render_character(character, frame, gl_position[0], gl_position[1], 1.0);
+                character_position.x += Self::FONT_SIZE as i32;
+            }
+        }
+    }
+
+    pub fn render_element_rect_with_offset(
+        &self,
+        element_rect: &ElementRect,
+        frame: &mut Frame,
+        position: Position,
+    ) {
+        if let Some(words) = element_rect.words.as_ref() {
+            self.render_words(words, frame, position);
+        }
+        for child in &element_rect.children {
+            let new_position =
+                Position::new(position.x + child.position.x, position.y + child.position.y);
+            self.render_element_rect_with_offset(&child, frame, new_position);
+        }
+    }
+
+    pub fn render_element_rect(&self, element_rect: &ElementRect, frame: &mut Frame) {
+        self.render_element_rect_with_offset(element_rect, frame, Position::new(0, 0));
+    }
+
     pub fn render_current_page(&self, frame: &mut Frame) {
+        let page_layout = self.create_page_layout();
+        self.render_element_rect(&page_layout, frame);
+    }
+
+    pub fn create_page_layout(&self) -> ElementRect {
         let mut body = None;
         for element in &self.elements[0].children {
             if element.element_type == Tag::Body {
@@ -326,7 +364,48 @@ impl Window {
             }
         }
         let body = body.unwrap();
-        self.render_element(body, frame, &mut 30);
+        let inner_size = self.window.as_ref().unwrap().inner_size();
+        ElementRect::from_element(
+            body,
+            Position::new(20, 20),
+            Size::new(inner_size.width as i32 - 20, 9999),
+            Size::new(Self::FONT_SIZE as i32, Self::FONT_SIZE as i32),
+        )
+    }
+
+    pub fn render_character(&self, character: char, frame: &mut Frame, x: f32, y: f32, scale: f32) {
+        let size = self.screen_to_relative_coordinates(
+            (Self::FONT_SIZE * scale) as i32,
+            (Self::FONT_SIZE * scale) as i32,
+        );
+        let mat4 = Matrix4::identity()
+            .append_nonuniform_scaling(&Vector3::new(size[0], size[1], 1.0))
+            .append_translation(&Vector3::new(x, y, 0.0));
+        let compiled_matrix = TryInto::<[[f32; 4]; 4]>::try_into(mat4.data.0).unwrap();
+
+        let character_rect = self
+            .character_rects
+            .get(&character)
+            .unwrap_or(self.character_rects.get(&'A').unwrap());
+
+        let uniforms = uniform![
+            transform: compiled_matrix,
+            font_texture: self.font_texture.as_ref().unwrap(),
+            color_addition: Color::Black.to_color()
+        ];
+
+        frame
+            .draw(
+                &character_rect.vao,
+                &character_rect.ebo,
+                self.program.as_ref().unwrap(),
+                &uniforms,
+                &DrawParameters {
+                    blend: Blend::alpha_blending(),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
     }
 
     /// Returns the end of the text y coordinate

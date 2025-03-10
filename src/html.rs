@@ -1,6 +1,6 @@
 use std::{collections::HashMap, iter::Peekable, str::Chars};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Tag {
     PlainText,
     H(u32),
