@@ -43,7 +43,7 @@ pub struct Word {
     pub position: Position,
 }
 
-/// A rectangle that holds an element. Used in scaling and positioning
+/// A rectangle that holds an element. Used in scaling and positioning during rendering.
 #[derive(Debug)]
 pub struct ElementRect {
     pub position: Position,
@@ -55,6 +55,12 @@ pub struct ElementRect {
 }
 
 impl ElementRect {
+    /// Create a [ElementRect] from an [Element]
+    ///
+    /// * `element` the tag of this element
+    /// * `position` the position of this element relative to parent
+    /// * `size` the size of this element
+    /// * `font_size` the font size of this element
     pub fn from_element(
         element: &Element,
         position: Position,
@@ -93,6 +99,7 @@ impl ElementRect {
         }
     }
 
+    /// Returns the height of this element
     pub fn get_height(&self) -> i32 {
         let mut height = 0;
         if let Some(words) = self.words.as_ref() {
@@ -109,6 +116,13 @@ impl ElementRect {
         i32::max(height, child_height)
     }
 
+    /// Create a [ElementRect] from text content
+    ///
+    /// * `tag` the tag of this element
+    /// * `text` the text of this element
+    /// * `position` the position of this element relative to parent
+    /// * `size` the size of this element
+    /// * `font_size` the font size of this element
     pub fn from_text(
         tag: Tag,
         text: &str,
