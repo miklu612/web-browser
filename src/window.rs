@@ -25,6 +25,20 @@ use winit::{
     window::{Window as WinitWindow, WindowId},
 };
 
+pub enum Color {
+    Black,
+    LinkBlue,
+}
+
+impl Color {
+    pub fn to_color(&self) -> [f32; 3] {
+        match self {
+            Self::Black => [0.0, 0.0, 0.0],
+            Self::LinkBlue => [0.3, 0.3, 0.9],
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 struct Vertex {
     a_position: [f32; 3],
@@ -183,9 +197,12 @@ impl ApplicationHandler for Window {
                     out vec4 color;
                     in vec2 texCoord;
                     uniform sampler2D font_texture;
+                    uniform vec3 color_addition;
                     void main() {
-                        //color = vec4(texCoord.x, texCoord.y, 0, 1);
                         color = texture(font_texture, texCoord);
+                        color.x = color.x + color_addition.x;
+                        color.y = color.y + color_addition.y;
+                        color.z = color.z + color_addition.z;
                     }
                 "#
             })
@@ -267,11 +284,32 @@ impl Window {
         for child in &element.children {
             if child.element_type == Tag::PlainText {
                 if element.element_type == Tag::H(1) {
-                    *y =
-                        self.render_text(&child.inner_text.to_ascii_uppercase(), frame, 0, *y, 2.0);
-                } else if element.element_type == Tag::Paragraph || element.element_type == Tag::A {
-                    *y =
-                        self.render_text(&child.inner_text.to_ascii_uppercase(), frame, 0, *y, 1.0);
+                    *y = self.render_text(
+                        &child.inner_text.to_ascii_uppercase(),
+                        frame,
+                        0,
+                        *y,
+                        2.0,
+                        Color::Black,
+                    );
+                } else if element.element_type == Tag::Paragraph {
+                    *y = self.render_text(
+                        &child.inner_text.to_ascii_uppercase(),
+                        frame,
+                        0,
+                        *y,
+                        1.0,
+                        Color::Black,
+                    );
+                } else if element.element_type == Tag::A {
+                    *y = self.render_text(
+                        &child.inner_text.to_ascii_uppercase(),
+                        frame,
+                        0,
+                        *y,
+                        1.0,
+                        Color::LinkBlue,
+                    );
                 }
             } else {
                 self.render_element(child, frame, y);
@@ -299,10 +337,12 @@ impl Window {
         x: i32,
         mut y: i32,
         scale: f32,
+        color: Color,
     ) -> i32 {
         let offset = (Self::FONT_SIZE * scale) as usize;
         let bounds = self.window.as_ref().unwrap().inner_size();
         let original_y = y;
+        let color_add = color.to_color();
         for i in 0..text.len() {
             if text.chars().nth(i) == Some(' ') || text.chars().nth(i).is_none() {
                 continue;
@@ -340,7 +380,8 @@ impl Window {
                 transform: compiled_matrix,
                 font_texture: self.font_texture
                     .as_ref()
-                    .unwrap()
+                    .unwrap(),
+                color_addition: color_add
             ];
 
             frame
