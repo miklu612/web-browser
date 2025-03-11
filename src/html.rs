@@ -213,7 +213,8 @@ fn parse_html_element(iter: &mut Peekable<Chars>) -> Element {
     let tag = get_identifier(iter);
     let attributes = parse_attributes(iter);
 
-    // These elements for whatever reason aren't self terminating sometimes, so we gotta check for them
+    // These elements for whatever reason aren't self terminating sometimes, so we gotta check for
+    // them. Except of course when they are self terminating.
     if tag == "link" || tag == "meta" || tag == "img" || tag == "input" || tag == "br" {
         assert_eq!(iter.next(), Some('>'));
         let mut element = Element::new(Tag::from_string(&tag).unwrap());
