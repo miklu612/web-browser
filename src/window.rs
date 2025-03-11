@@ -470,6 +470,57 @@ impl Window {
                 ),
             );
         }
+
+        // Load . ? ! ( ) < characters
+        let char_arr = [b'.', b'?', b'!', b'(', b')', b'<'];
+        for x in 8..14 {
+            self.character_rects.insert(
+                (char_arr[x - 8]) as char,
+                Rectangle::with_uv(
+                    self.display.as_ref().unwrap(),
+                    [
+                        [stride_x * x as f32, 1.0 - stride_y * 3.0],
+                        [stride_x * x as f32, 1.0 - stride_y * 2.0],
+                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 3.0],
+                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 2.0],
+                    ],
+                ),
+            );
+        }
+
+        let char_arr: [u8; 14] = [
+            b'>', b':', b',', b'-', b'_', b'+', b'*', b';', b'{', b'}', b'/', b'@', b'#', b'[',
+        ];
+        for x in 0..14 {
+            self.character_rects.insert(
+                (char_arr[x]) as char,
+                Rectangle::with_uv(
+                    self.display.as_ref().unwrap(),
+                    [
+                        [stride_x * x as f32, 1.0 - stride_y * 4.0],
+                        [stride_x * x as f32, 1.0 - stride_y * 3.0],
+                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 4.0],
+                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 3.0],
+                    ],
+                ),
+            );
+        }
+
+        let char_arr: [u8; 1] = [b']'];
+        for x in 0..1 {
+            self.character_rects.insert(
+                (char_arr[x]) as char,
+                Rectangle::with_uv(
+                    self.display.as_ref().unwrap(),
+                    [
+                        [stride_x * x as f32, 1.0 - stride_y * 5.0],
+                        [stride_x * x as f32, 1.0 - stride_y * 4.0],
+                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 5.0],
+                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 4.0],
+                    ],
+                ),
+            );
+        }
     }
 
     pub fn open(&mut self) {
