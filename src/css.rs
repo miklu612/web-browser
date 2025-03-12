@@ -37,6 +37,7 @@ pub enum Value {
 #[derive(Debug)]
 pub enum Rule {
     Width(Unit),
+    MarginLeft(Unit),
 }
 
 impl Rule {
@@ -44,6 +45,11 @@ impl Rule {
         match identifier {
             "width" => match value {
                 Value::Unit(unit) => Self::Width(unit),
+                _ => panic!("Expected unit"),
+            },
+
+            "margin-left" => match value {
+                Value::Unit(unit) => Self::MarginLeft(unit),
                 _ => panic!("Expected unit"),
             },
 
@@ -125,6 +131,10 @@ pub fn get_identifier(iterator: &mut Peekable<Chars>) -> String {
         match iterator.peek() {
             Some(':') => break,
 
+            Some('-') => {
+                output.push(iterator.next().unwrap());
+            }
+
             Some(v) if v.is_alphabetic() => {
                 output.push(iterator.next().unwrap());
             }
@@ -172,6 +182,14 @@ pub fn parse_css_value(iterator: &mut Peekable<Chars>) -> Value {
             iterator.next()
         ),
     }
+}
+
+/// Just a simple function to transform css into a valid block. An inefficient solution, but it
+/// works, so ehh...
+pub fn parse_inline_css(inline_css: &str) -> Vec<Rule> {
+    let blockified_code = "{".to_owned() + inline_css + ";}";
+    let mut iter = blockified_code.chars().peekable();
+    parse_block(&mut iter)
 }
 
 /// Parses a css block

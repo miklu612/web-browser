@@ -1,3 +1,4 @@
+use crate::document::Document;
 use crate::html::{Element, Tag};
 use crate::render_layout::{ElementRect, Position, Size, Word};
 use glium::backend::glutin::glutin;
@@ -112,7 +113,7 @@ pub struct Window {
     program: Option<Program>,
     font_texture: Option<Texture2d>,
     character_rects: HashMap<char, Rectangle>,
-    elements: Vec<Element>,
+    document: Option<Document>,
     scroll_y: i32,
 }
 
@@ -251,8 +252,8 @@ impl Window {
             program: None,
             font_texture: None,
             character_rects: HashMap::new(),
-            elements: Vec::new(),
             scroll_y: 0,
+            document: None,
         }
     }
 
@@ -277,7 +278,8 @@ impl Window {
     }
 
     pub fn render(&mut self, elements: Vec<Element>) {
-        self.elements = elements;
+        self.document = Some(Document::new(elements, Vec::new()));
+        self.document.as_mut().unwrap().parse_inline_css();
         self.open();
     }
 
@@ -334,7 +336,7 @@ impl Window {
 
     pub fn create_page_layout(&self) -> ElementRect {
         let mut body = None;
-        for element in &self.elements[0].children {
+        for element in &self.document.as_ref().unwrap().elements[0].children {
             if element.element_type == Tag::Body {
                 body = Some(element);
                 break;
