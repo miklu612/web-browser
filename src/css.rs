@@ -13,9 +13,29 @@ use std::{iter::Peekable, str::Chars};
 /// ```css
 /// 50px
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Unit {
     Px(i32),
+    Pt(i32),
+}
+
+/// This contains all of the different colours that css supports.
+pub enum Color {
+    White,
+}
+
+/// This contains all of the different values for border and such. For example
+/// `border: 20px solid`
+pub enum BorderStyle {
+    Solid,
+}
+
+pub enum DisplayStyle {
+    Block,
+}
+
+pub enum Direction {
+    Right,
 }
 
 /// This won't be used in the final product, but it will be used to contain a variable value to
@@ -23,6 +43,39 @@ pub enum Unit {
 /// value contains the correct value.
 pub enum Value {
     Unit(Unit),
+    Color(Color),
+    BorderStyle(BorderStyle),
+    DisplayStyle(DisplayStyle),
+    Direction(Direction),
+}
+
+impl Value {
+    /// Checks for a lot of values and returns one if it matches. Else it panics. This could
+    /// probably be an option in the future, but for now to keep things simple, we'll just write it
+    /// like this.
+    pub fn from_string(css_value: &str) -> Value {
+        if css_value.ends_with("px") {
+            let without_px_suffix = css_value.strip_suffix("px").unwrap();
+            if without_px_suffix.chars().all(|x| x.is_numeric()) {
+                return Value::Unit(Unit::Px(without_px_suffix.parse().unwrap()));
+            }
+        } else if css_value.ends_with("pt") {
+            let without_pt_suffix = css_value.strip_suffix("pt").unwrap();
+            if without_pt_suffix.chars().all(|x| x.is_numeric()) {
+                return Value::Unit(Unit::Pt(without_pt_suffix.parse().unwrap()));
+            }
+        } else if css_value == "white" {
+            return Value::Color(Color::White);
+        } else if css_value == "solid" {
+            return Value::BorderStyle(BorderStyle::Solid);
+        } else if css_value == "block" {
+            return Value::DisplayStyle(DisplayStyle::Block);
+        } else if css_value == "right" {
+            return Value::Direction(Direction::Right);
+        }
+
+        panic!("Couldn't convert '{}' into a css value", css_value);
+    }
 }
 
 /// Represents a single rule in a ruleset block
@@ -41,19 +94,22 @@ pub enum Rule {
 }
 
 impl Rule {
-    pub fn new(identifier: &str, value: Value) -> Self {
+    pub fn new(identifier: &str, value: Vec<Value>) -> Option<Self> {
         match identifier {
-            "width" => match value {
-                Value::Unit(unit) => Self::Width(unit),
+            "width" => match value.get(0).unwrap() {
+                Value::Unit(unit) => Some(Self::Width(*unit)),
                 _ => panic!("Expected unit"),
             },
 
-            "margin-left" => match value {
-                Value::Unit(unit) => Self::MarginLeft(unit),
+            "margin-left" => match value.get(0).unwrap() {
+                Value::Unit(unit) => Some(Self::MarginLeft(*unit)),
                 _ => panic!("Expected unit"),
             },
 
-            _ => panic!("Unknown css identifier: {}", identifier),
+            _ => {
+                println!("Unknown css identifier: {}", identifier);
+                None
+            }
         }
     }
 }
@@ -160,7 +216,6 @@ pub fn parse_css_value_unit(iterator: &mut Peekable<Chars>) -> Unit {
             Some('p') => {
                 assert_eq!(iterator.next(), Some('p'));
                 assert_eq!(iterator.next(), Some('x'));
-                assert_eq!(iterator.peek(), Some(';').as_ref());
                 output = Some(Unit::Px(digit));
                 break;
             }
@@ -171,17 +226,47 @@ pub fn parse_css_value_unit(iterator: &mut Peekable<Chars>) -> Unit {
     output.expect("Couldn't evaluate value unit type")
 }
 
+pub fn collect_until_terminator(iterator: &mut Peekable<Chars>, terminators: &[char]) -> String {
+    let mut output = String::new();
+    loop {
+        match iterator.peek() {
+            Some(v) => {
+                if !terminators.contains(v) {
+                    output.push(*v);
+                    iterator.next();
+                } else {
+                    break;
+                }
+            }
+            None => panic!("Expected terminator, got nothing"),
+        }
+    }
+    output
+}
+
 /// The iterator has to be placed at the first starting character of the CSS value. The iterator
 /// will return in the `;` character's position
-pub fn parse_css_value(iterator: &mut Peekable<Chars>) -> Value {
-    match iterator.peek() {
-        Some(v) if v.is_numeric() => Value::Unit(parse_css_value_unit(iterator)),
+pub fn parse_css_value(iterator: &mut Peekable<Chars>) -> Vec<Value> {
+    let mut output = Vec::new();
+    loop {
+        match iterator.peek() {
+            Some(v) if v.is_alphabetic() || v.is_numeric() => loop {
+                let value = collect_until_terminator(iterator, &[';', ' ']);
+                output.push(Value::from_string(&value));
+                match iterator.peek() {
+                    Some(';') => break,
+                    Some(' ') => skip_whitespace(iterator),
+                    _ => panic!("Invalid state"),
+                }
+            },
+            Some(';') => break,
 
-        _ => panic!(
-            "Unimplemented CSS syntax character found: '{:?}'",
-            iterator.next()
-        ),
+            Some(v) => panic!("Invalid state '{}'", v),
+
+            None => panic!("Expected more values"),
+        }
     }
+    output
 }
 
 /// Just a simple function to transform css into a valid block. An inefficient solution, but it
@@ -207,7 +292,7 @@ pub fn parse_block(iterator: &mut Peekable<Chars>) -> Vec<Rule> {
                 skip_whitespace(iterator);
             }
 
-            Some(v) => {
+            Some(v) if v.is_alphabetic() => {
                 let identifier = get_identifier(iterator);
                 println!("Value Identifier - {}", identifier);
 
@@ -218,7 +303,14 @@ pub fn parse_block(iterator: &mut Peekable<Chars>) -> Vec<Rule> {
                 let value = parse_css_value(iterator);
                 assert_eq!(iterator.next(), Some(';'));
 
-                rules.push(Rule::new(&identifier, value));
+                if let Some(rule) = Rule::new(&identifier, value) {
+                    rules.push(rule);
+                }
+            }
+
+            Some(';') => {
+                println!("Extra ';' found");
+                iterator.next();
             }
 
             _ => panic!(

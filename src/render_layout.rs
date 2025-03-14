@@ -93,15 +93,12 @@ impl ElementRect {
             // Search for position altering css rules
             for rule in &element.inner_styles {
                 match rule {
-                    Rule::MarginLeft(v) => {
-                        println!("Margin left found!");
-                        match v {
-                            Unit::Px(pixels) => {
-                                last_position.x += pixels;
-                            }
-                            _ => panic!("Unimplemented unit found"),
+                    Rule::MarginLeft(v) => match v {
+                        Unit::Px(pixels) => {
+                            last_position.x += pixels;
                         }
-                    }
+                        _ => panic!("Unimplemented unit found"),
+                    },
                     _ => {}
                 }
             }
