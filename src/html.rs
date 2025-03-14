@@ -1,4 +1,4 @@
-use crate::css::parse_inline_css;
+use crate::css::{parse_inline_css, Rule};
 use std::{collections::HashMap, iter::Peekable, str::Chars};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -70,6 +70,8 @@ pub struct Element {
     pub children: Vec<Element>,
     pub inner_text: String,
     pub attributes: HashMap<String, String>,
+    pub styles: Vec<Rule>,
+    pub inner_styles: Vec<Rule>,
 }
 
 impl Element {
@@ -79,6 +81,8 @@ impl Element {
             children: Vec::new(),
             inner_text: String::new(),
             attributes: HashMap::new(),
+            styles: Vec::new(),
+            inner_styles: Vec::new(),
         }
     }
 
@@ -88,12 +92,14 @@ impl Element {
             inner_text: inner_text.to_string(),
             children: Vec::new(),
             attributes: HashMap::new(),
+            styles: Vec::new(),
+            inner_styles: Vec::new(),
         }
     }
 
     pub fn parse_inline_css(&mut self) {
         if let Some(css) = self.attributes.get("style") {
-            let rules = parse_inline_css(css);
+            self.inner_styles = parse_inline_css(css);
         }
         for child in &mut self.children {
             child.parse_inline_css();

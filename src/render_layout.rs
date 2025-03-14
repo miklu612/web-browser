@@ -5,6 +5,7 @@
 //! positions are relative to the parent. And their children are relative to their parent all the
 //! way down until there are no children.
 
+use crate::css::{Rule, Unit};
 use crate::html::{Element, Tag};
 
 /// A generic position vector implementation
@@ -88,6 +89,23 @@ impl ElementRect {
             };
             let mut children = Vec::new();
             let mut last_position = Position::new(0, 0);
+
+            // Search for position altering css rules
+            for rule in &element.inner_styles {
+                match rule {
+                    Rule::MarginLeft(v) => {
+                        println!("Margin left found!");
+                        match v {
+                            Unit::Px(pixels) => {
+                                last_position.x += pixels;
+                            }
+                            _ => panic!("Unimplemented unit found"),
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
             for child in &element.children {
                 let rect = ElementRect::from_element(&child, last_position, size, new_font_size);
                 last_position.y += rect.get_height();
