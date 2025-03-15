@@ -1,6 +1,6 @@
 use crate::document::Document;
 use crate::html::{Element, Tag};
-use crate::render_layout::{ElementRect, Position, Size, Word};
+use crate::render_layout::{ElementRect, ExpandDirection, Position, Size, Word};
 use glium::backend::glutin::glutin;
 use glium::{
     backend::glutin::Display,
@@ -347,8 +347,10 @@ impl Window {
         ElementRect::from_element(
             body,
             Position::new(10, 10),
+            Position::new(10, 10),
             Size::new(inner_size.width as i32 - 20, 9999),
             Size::new(Self::FONT_SIZE as i32, Self::FONT_SIZE as i32),
+            ExpandDirection::Vertical,
         )
     }
 
