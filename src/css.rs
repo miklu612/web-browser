@@ -96,12 +96,12 @@ pub enum Rule {
 impl Rule {
     pub fn new(identifier: &str, value: Vec<Value>) -> Option<Self> {
         match identifier {
-            "width" => match value.get(0).unwrap() {
+            "width" => match value.first().unwrap() {
                 Value::Unit(unit) => Some(Self::Width(*unit)),
                 _ => panic!("Expected unit"),
             },
 
-            "margin-left" => match value.get(0).unwrap() {
+            "margin-left" => match value.first().unwrap() {
                 Value::Unit(unit) => Some(Self::MarginLeft(*unit)),
                 _ => panic!("Expected unit"),
             },
@@ -205,7 +205,7 @@ pub fn get_identifier(iterator: &mut Peekable<Chars>) -> String {
 /// in the ending `;` character.
 pub fn parse_css_value_unit(iterator: &mut Peekable<Chars>) -> Unit {
     let mut digit: i32 = 0;
-    let mut output = None;
+    let output;
     loop {
         match iterator.peek() {
             Some(v) if v.is_numeric() => {

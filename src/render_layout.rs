@@ -5,7 +5,6 @@
 //! positions are relative to the parent. And their children are relative to their parent all the
 //! way down until there are no children.
 
-use crate::css::{Rule, Unit};
 use crate::html::{Element, Tag};
 use std::ops::Add;
 
@@ -173,12 +172,12 @@ impl ParagraphDefinition {
         }
 
         let sentences = vec![Sentence { words }];
-        let mut output = Paragraph {
+        
+
+        Paragraph {
             sentences,
             height: y_position + font_size.height,
-        };
-
-        output
+        }
     }
 }
 

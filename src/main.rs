@@ -22,8 +22,8 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
 
     let mut as_css = false;
-    let mut website_code = if args.len() == 3 {
-        if args[1] == "--from-file".to_owned() {
+    let website_code = if args.len() == 3 {
+        if args[1] == *"--from-file" {
             read_file(Path::new(&args[2]))
         } else if args[1] == "--from-web" {
             get_site(&args[2])

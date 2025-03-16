@@ -337,7 +337,7 @@ impl Window {
 
     pub fn render_character(&self, character: char, frame: &mut Frame, x: f32, y: f32, scale: f32) {
         // If the character is not visibile, don't render it.
-        if y < -1.0 || y > 1.0 {
+        if !(-1.0..=1.0).contains(&y) {
             return;
         }
 
