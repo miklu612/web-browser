@@ -111,24 +111,34 @@ pub fn collect_definition(element: &Element) -> ElementDefinition {
         tag: element.element_type,
         children: Vec::new(),
     };
+    let mut allow_paragraph_connecting = false;
+
     for child in &element.children {
         if child.element_type == Tag::PlainText {
             definition.children.push(ParagraphDefinition::from_string(
                 element.element_type,
                 &child.inner_text,
             ));
+            allow_paragraph_connecting = true;
         } else if child.element_type == Tag::Span || child.element_type == Tag::A {
             let child_definition = collect_definition(child);
-            for child_paragraph in child_definition.children {
-                if let Some(last) = definition.children.last_mut() {
-                    last.words.extend(child_paragraph.words.clone());
-                } else {
-                    definition.children.push(child_paragraph);
+            if allow_paragraph_connecting {
+                for child_paragraph in child_definition.children {
+                    if let Some(last) = definition.children.last_mut() {
+                        last.words.extend(child_paragraph.words.clone());
+                    } else {
+                        definition.children.push(child_paragraph);
+                    }
                 }
+            } else {
+                let child_definition = collect_definition(child);
+                definition.children.extend(child_definition.children);
             }
+            allow_paragraph_connecting = true;
         } else {
             let child_definition = collect_definition(child);
             definition.children.extend(child_definition.children);
+            allow_paragraph_connecting = false;
         }
     }
     definition
