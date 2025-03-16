@@ -20,7 +20,9 @@ pub enum Unit {
 }
 
 /// This contains all of the different colours that css supports.
+#[derive(Debug, Copy, Clone)]
 pub enum Color {
+    Hex(u8, u8, u8),
     White,
 }
 
@@ -91,6 +93,7 @@ impl Value {
 pub enum Rule {
     Width(Unit),
     MarginLeft(Unit),
+    BackgroundColor(Color),
 }
 
 impl Rule {
@@ -104,6 +107,11 @@ impl Rule {
             "margin-left" => match value.first().unwrap() {
                 Value::Unit(unit) => Some(Self::MarginLeft(*unit)),
                 _ => panic!("Expected unit"),
+            },
+
+            "background-color" => match value.first().unwrap() {
+                Value::Color(color) => Some(Self::BackgroundColor(*color)),
+                _ => panic!("Expected a color"),
             },
 
             _ => {
@@ -244,6 +252,27 @@ pub fn collect_until_terminator(iterator: &mut Peekable<Chars>, terminators: &[c
     output
 }
 
+pub fn collect_hex(iterator: &mut Peekable<Chars>) -> u8 {
+    // Probably there is a more elegant solution, but this works.
+    let first = iterator.next().unwrap();
+    let second = iterator.next().unwrap();
+    let mut hex = String::new();
+    hex.push(first);
+    hex.push(second);
+    u8::from_str_radix(&hex, 16).unwrap()
+}
+
+/// Collects a hex number. The iterator must be placed on the '#' character
+pub fn collect_hex_color(iterator: &mut Peekable<Chars>) -> Color {
+    assert_eq!(iterator.next(), Some('#'));
+
+    let r = collect_hex(iterator);
+    let g = collect_hex(iterator);
+    let b = collect_hex(iterator);
+
+    Color::Hex(r, g, b)
+}
+
 /// The iterator has to be placed at the first starting character of the CSS value. The iterator
 /// will return in the `;` character's position
 pub fn parse_css_value(iterator: &mut Peekable<Chars>) -> Vec<Value> {
@@ -260,6 +289,11 @@ pub fn parse_css_value(iterator: &mut Peekable<Chars>) -> Vec<Value> {
                 }
             },
             Some(';') => break,
+
+            Some('#') => {
+                let color = collect_hex_color(iterator);
+                output.push(Value::Color(color));
+            }
 
             Some(v) => panic!("Invalid state '{}'", v),
 

@@ -1,6 +1,6 @@
 use crate::document::Document;
 use crate::html::{Element, Tag};
-use crate::render_layout::{Layout, Position, Size};
+use crate::render_layout::{Color as LayoutColor, Layout, Position, Size};
 use glium::backend::glutin::glutin;
 use glium::{
     backend::glutin::Display,
@@ -200,11 +200,17 @@ impl ApplicationHandler for Window {
                     in vec2 texCoord;
                     uniform sampler2D font_texture;
                     uniform vec3 color_addition;
+                    uniform vec4 background_color;
                     void main() {
                         color = texture(font_texture, texCoord);
                         color.x = color.x + color_addition.x;
                         color.y = color.y + color_addition.y;
                         color.z = color.z + color_addition.z;
+
+                        // 0.1 is like a toggle switch for the time being
+                        if(color.a < 0.1 && background_color.a > 0.1) {
+                            color = background_color;
+                        }
                     }
                 "#
             })
@@ -257,7 +263,7 @@ impl Window {
         }
     }
 
-    const FONT_SIZE: f32 = 30.0;
+    const FONT_SIZE: f32 = 20.0;
 
     /// Transforms screen coordinates into a -1.0 - 1.0 scale
     pub fn screen_to_opengl_coordinates(&self, x: i32, y: i32) -> [f32; 2] {
@@ -283,7 +289,15 @@ impl Window {
         self.open();
     }
 
-    pub fn render_string(&self, frame: &mut Frame, string: &str, x: i32, y: i32, font_scale: f32) {
+    pub fn render_string(
+        &self,
+        frame: &mut Frame,
+        string: &str,
+        x: i32,
+        y: i32,
+        font_scale: f32,
+        background_color: Option<LayoutColor>,
+    ) {
         for (index, character) in string.chars().enumerate() {
             let x_coordinates = x + index as i32 * (Self::FONT_SIZE * font_scale) as i32;
             let gl_coordinates = self.screen_to_opengl_coordinates(x_coordinates, y);
@@ -293,6 +307,7 @@ impl Window {
                 gl_coordinates[0],
                 gl_coordinates[1],
                 font_scale,
+                background_color,
             );
         }
     }
@@ -308,6 +323,7 @@ impl Window {
                         word.position.x,
                         word.position.y + self.scroll_y,
                         paragraph.font_scale,
+                        paragraph.background_color,
                     );
                 }
             }
@@ -336,7 +352,15 @@ impl Window {
         layout
     }
 
-    pub fn render_character(&self, character: char, frame: &mut Frame, x: f32, y: f32, scale: f32) {
+    pub fn render_character(
+        &self,
+        character: char,
+        frame: &mut Frame,
+        x: f32,
+        y: f32,
+        scale: f32,
+        background_color: Option<LayoutColor>,
+    ) {
         // If the character is not visibile, don't render it.
         if !(-1.0..=1.0).contains(&y) {
             return;
@@ -356,10 +380,16 @@ impl Window {
             .get(&character)
             .unwrap_or(self.character_rects.get(&'A').unwrap());
 
+        let bg_color = match background_color {
+            Some(color) => [color.r, color.g, color.b, 1.0],
+            None => [0.0, 0.0, 0.0, 0.0],
+        };
+
         let uniforms = uniform![
             transform: compiled_matrix,
             font_texture: self.font_texture.as_ref().unwrap(),
-            color_addition: Color::Black.to_color()
+            color_addition: Color::Black.to_color(),
+            background_color: bg_color
         ];
 
         frame

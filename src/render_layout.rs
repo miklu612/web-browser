@@ -5,6 +5,7 @@
 //! positions are relative to the parent. And their children are relative to their parent all the
 //! way down until there are no children.
 
+use crate::css::{Color as CssColor, Rule};
 use crate::html::{Element, Tag};
 use std::ops::Add;
 
@@ -48,6 +49,13 @@ impl Size {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct Color {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+}
+
 /// A container for individual words.
 #[derive(Debug)]
 pub struct Word {
@@ -86,6 +94,7 @@ pub struct Paragraph {
     pub sentences: Vec<Sentence>,
     pub height: i32,
     pub font_scale: f32,
+    pub background_color: Option<Color>,
 }
 
 impl Paragraph {
@@ -113,17 +122,35 @@ pub fn collect_definition(element: &Element) -> ElementDefinition {
     };
     let mut allow_paragraph_connecting = false;
 
+    // Handle some css stuff
+    let mut background_color = None;
+    for rule in &element.inner_styles {
+        match rule {
+            Rule::BackgroundColor(color) => match color {
+                CssColor::Hex(r, g, b) => {
+                    background_color = Some(Color {
+                        r: *r as f32 / 255.0,
+                        g: *g as f32 / 255.0,
+                        b: *b as f32 / 255.0,
+                    });
+                }
+                _ => panic!("Color not implemented"),
+            },
+            _ => {}
+        }
+    }
+
     for child in &element.children {
         if child.element_type == Tag::PlainText {
-            definition.children.push(ParagraphDefinition::from_string(
-                element.element_type,
-                &child.inner_text,
-            ));
+            let mut paragraph =
+                ParagraphDefinition::from_string(element.element_type, &child.inner_text);
+            paragraph.background_color = background_color;
+            definition.children.push(paragraph);
             allow_paragraph_connecting = true;
         } else if child.element_type == Tag::Span || child.element_type == Tag::A {
             let child_definition = collect_definition(child);
             if allow_paragraph_connecting {
-                for child_paragraph in child_definition.children {
+                for mut child_paragraph in child_definition.children {
                     if let Some(last) = definition.children.last_mut() {
                         last.words.extend(child_paragraph.words.clone());
                     } else {
@@ -149,6 +176,7 @@ pub struct ParagraphDefinition {
     pub tag: Tag,
     pub words: Vec<String>,
     pub font_scale: f32,
+    pub background_color: Option<Color>,
 }
 
 impl ParagraphDefinition {
@@ -161,6 +189,7 @@ impl ParagraphDefinition {
                 Tag::H(1) => 2.0,
                 _ => 1.0,
             },
+            background_color: None,
         }
     }
 
@@ -190,6 +219,7 @@ impl ParagraphDefinition {
             sentences,
             height: y_position + font_size.height,
             font_scale: self.font_scale,
+            background_color: self.background_color,
         }
     }
 }
