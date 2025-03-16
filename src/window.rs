@@ -286,7 +286,7 @@ impl Window {
     pub fn render_string(&self, frame: &mut Frame, string: &str, x: i32, y: i32, font_scale: f32) {
         for (index, character) in string.chars().enumerate() {
             let x_coordinates = x + index as i32 * (Self::FONT_SIZE * font_scale) as i32;
-            let gl_coordinates = self.screen_to_opengl_coordinates(x_coordinates as i32, y);
+            let gl_coordinates = self.screen_to_opengl_coordinates(x_coordinates, y);
             self.render_character(
                 character.to_uppercase().next().unwrap(),
                 frame,
@@ -477,9 +477,9 @@ impl Window {
         let char_arr: [u8; 14] = [
             b'>', b':', b',', b'-', b'_', b'+', b'*', b';', b'{', b'}', b'/', b'@', b'#', b'[',
         ];
-        for x in 0..14 {
+        for (x, character) in char_arr.iter().enumerate() {
             self.character_rects.insert(
-                (char_arr[x]) as char,
+                *character as char,
                 Rectangle::with_uv(
                     self.display.as_ref().unwrap(),
                     [
@@ -493,9 +493,9 @@ impl Window {
         }
 
         let char_arr: [u8; 1] = [b']'];
-        for x in 0..1 {
+        for (x, character) in char_arr.iter().enumerate() {
             self.character_rects.insert(
-                (char_arr[x]) as char,
+                *character as char,
                 Rectangle::with_uv(
                     self.display.as_ref().unwrap(),
                     [
