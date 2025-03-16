@@ -1,6 +1,6 @@
 use crate::document::Document;
 use crate::html::{Element, Tag};
-use crate::render_layout::{ElementRect, ExpandDirection, Position, Size, Word};
+use crate::render_layout::{Layout, Position, Size};
 use glium::backend::glutin::glutin;
 use glium::{
     backend::glutin::Display,
@@ -283,58 +283,37 @@ impl Window {
         self.open();
     }
 
-    pub fn render_words(
-        &self,
-        words: &Vec<Word>,
-        frame: &mut Frame,
-        position: Position,
-        font_size: Size,
-    ) {
-        for word in words {
-            let mut character_position =
-                Position::new(word.position.x + position.x, word.position.y + position.y);
-            let scaling = font_size.width as f32 / Self::FONT_SIZE;
-            for character in word.word.chars() {
-                let gl_position =
-                    self.screen_to_opengl_coordinates(character_position.x, character_position.y);
-                self.render_character(character, frame, gl_position[0], gl_position[1], scaling);
-                character_position.x += font_size.width;
-            }
-        }
-    }
-
-    pub fn render_element_rect_with_offset(
-        &self,
-        element_rect: &ElementRect,
-        frame: &mut Frame,
-        parent_position: Position,
-    ) {
-        if let Some(words) = element_rect.words.as_ref() {
-            self.render_words(words, frame, parent_position, element_rect.font_size);
-        }
-        for child in &element_rect.children {
-            let new_position = Position::new(
-                parent_position.x + child.position.x,
-                parent_position.y + child.position.y,
+    pub fn render_string(&self, frame: &mut Frame, string: &str, x: i32, y: i32) {
+        for (index, character) in string.chars().enumerate() {
+            let gl_coordinates =
+                self.screen_to_opengl_coordinates(x + index as i32 * Self::FONT_SIZE as i32, y);
+            self.render_character(
+                character.to_uppercase().next().unwrap(),
+                frame,
+                gl_coordinates[0],
+                gl_coordinates[1],
+                1.0,
             );
-            self.render_element_rect_with_offset(&child, frame, new_position);
         }
-    }
-
-    pub fn render_element_rect(&self, element_rect: &ElementRect, frame: &mut Frame) {
-        self.render_element_rect_with_offset(
-            element_rect,
-            frame,
-            Position::new(Self::FONT_SIZE as i32, self.scroll_y),
-        );
     }
 
     pub fn render_current_page(&self, frame: &mut Frame) {
         let page_layout = self.create_page_layout();
-        self.render_element_rect(&page_layout, frame);
+        for paragraph in &page_layout.paragraphs {
+            for sentence in &paragraph.sentences {
+                for word in &sentence.words {
+                    self.render_string(
+                        frame,
+                        &word.word,
+                        word.position.x,
+                        word.position.y + self.scroll_y,
+                    );
+                }
+            }
+        }
     }
 
-    pub fn create_page_layout(&self) -> ElementRect {
+    pub fn create_page_layout(&self) -> Layout {
         let mut body = None;
         for element in &self.document.as_ref().unwrap().elements[0].children {
             if element.element_type == Tag::Body {
@@ -344,14 +323,16 @@ impl Window {
         }
         let body = body.unwrap();
         let inner_size = self.window.as_ref().unwrap().inner_size();
-        ElementRect::from_element(
+        let mut layout = Layout::from_body(
             body,
-            Position::new(10, 10),
-            Position::new(10, 10),
-            Size::new(inner_size.width as i32 - 20, 9999),
+            Size {
+                width: inner_size.width as i32 - 40,
+                height: inner_size.height as i32 - 40,
+            },
             Size::new(Self::FONT_SIZE as i32, Self::FONT_SIZE as i32),
-            ExpandDirection::Vertical,
-        )
+        );
+        layout.make_relative_to(Position::new(40, 40));
+        layout
     }
 
     pub fn render_character(&self, character: char, frame: &mut Frame, x: f32, y: f32, scale: f32) {

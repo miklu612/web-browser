@@ -49,12 +49,51 @@ impl Size {
     }
 }
 
-/// A container for individual words. Contains the word and the position of it relative to the
-/// parent [ElementRect]
+/// A container for individual words.
 #[derive(Debug)]
 pub struct Word {
     pub word: String,
     pub position: Position,
+}
+
+impl Word {
+    pub fn new(word: String, position: Position) -> Self {
+        Self { word, position }
+    }
+}
+
+impl Word {
+    pub fn make_relative_to(&mut self, position: Position) {
+        self.position = self.position + position;
+    }
+}
+
+/// A container for multiple words. Not a single sentence as the name would imply. These are needed
+/// to apply different styles and functionality to different sections in a single paragraph
+pub struct Sentence {
+    pub words: Vec<Word>,
+}
+
+impl Sentence {
+    pub fn make_relative_to(&mut self, position: Position) {
+        for word in &mut self.words {
+            word.make_relative_to(position);
+        }
+    }
+}
+
+/// A container for multiple sentences.
+pub struct Paragraph {
+    pub sentences: Vec<Sentence>,
+    pub height: i32,
+}
+
+impl Paragraph {
+    pub fn make_relative_to(&mut self, position: Position) {
+        for sentence in &mut self.sentences {
+            sentence.make_relative_to(position);
+        }
+    }
 }
 
 /// The direction where the current tree of nodes will grow towards. This will usually be in the
@@ -65,236 +104,109 @@ pub enum ExpandDirection {
     Horizontal(Position),
 }
 
-/// A rectangle that holds an element. Used in scaling and positioning during rendering.
-#[derive(Debug)]
-pub struct ElementRect {
-    pub position: Position,
-    pub global_position: Position,
-    pub size: Size,
-    pub font_size: Size,
+/// A definition of an element rect that has not been created yet. This is a part of the
+/// preprocessing step and will be turned into a rect later on.
+pub struct ElementDefinition {
     pub tag: Tag,
-    pub words: Option<Vec<Word>>,
-    pub children: Vec<ElementRect>,
+    pub children: Vec<ParagraphDefinition>,
 }
 
-impl ElementRect {
-    /// Create a [ElementRect] from an [Element]
-    ///
-    /// * `element` the tag of this element
-    /// * `position` the position of this element relative to parent
-    /// * `size` the size of this element
-    /// * `font_size` the font size of this element
-    pub fn from_element(
-        element: &Element,
-        position: Position,
-        global_position: Position,
-        size: Size,
-        font_size: Size,
-        mut expand_direction: ExpandDirection,
-    ) -> ElementRect {
-        if element.element_type == Tag::PlainText {
-            ElementRect::from_text(
-                Tag::PlainText,
-                &element.inner_text,
-                position,
-                global_position,
-                size,
-                font_size,
-                expand_direction,
-            )
+impl ElementDefinition {}
+
+/// Collects the different element definitions from the element
+pub fn collect_definition(element: &Element) -> ElementDefinition {
+    let mut definition = ElementDefinition {
+        tag: element.element_type,
+        children: Vec::new(),
+    };
+    for child in &element.children {
+        if child.element_type == Tag::PlainText {
+            definition
+                .children
+                .push(ParagraphDefinition::from_string(&child.inner_text));
         } else {
-            let mut new_font_size = if element.element_type == Tag::H(1) {
-                font_size.scaled(2.0)
-            } else {
-                font_size
-            };
-            let mut children = Vec::new();
-            let mut last_position = Position::new(0, 0);
+            let child_definition = collect_definition(child);
+            definition.children.extend(child_definition.children);
+        }
+    }
+    definition
+}
 
-            // Search for position altering css rules
-            for rule in &element.inner_styles {
-                match rule {
-                    Rule::MarginLeft(v) => match v {
-                        Unit::Px(pixels) => {
-                            last_position.x += pixels;
-                        }
-                        _ => panic!("Unimplemented unit found"),
-                    },
-                    _ => {}
-                }
-            }
+/// A collection of elements that should be drawn inline
+pub struct ParagraphDefinition {
+    pub words: Vec<String>,
+}
 
-            let mut is_original_setter = false;
-            if element.element_type == Tag::Span && expand_direction == ExpandDirection::Vertical {
-                expand_direction = ExpandDirection::Horizontal(global_position);
-                is_original_setter = true;
-            }
+impl ParagraphDefinition {
+    pub fn from_string(string: &str) -> Self {
+        let words = string.split(" ").map(|x| x.to_owned()).collect();
+        Self { words }
+    }
 
-            for child in &element.children {
-                let mut rect = ElementRect::from_element(
-                    &child,
-                    last_position,
-                    global_position + last_position,
-                    Size::new(size.width - last_position.x, size.height - last_position.y),
-                    new_font_size,
-                    expand_direction,
-                );
-                match expand_direction {
-                    ExpandDirection::Vertical => last_position.y += rect.get_height(),
+    /// Returns a compiled version of this paragraph. The output hasn't yet been given a position,
+    /// so it will be positioned at 0, 0
+    pub fn compile(self, viewport_size: Size, font_size: Size) -> Paragraph {
+        let mut words = Vec::new();
+        let mut x_position: i32 = 0;
+        let mut y_position: i32 = 0;
 
-                    ExpandDirection::Horizontal(start_global_position) => {
-                        last_position = rect.position + rect.get_next_horizontal_position();
-                        last_position.x += font_size.width;
-                        if last_position.x > size.width {
-                            last_position.x = start_global_position.x - global_position.x;
-                            last_position.y += font_size.height;
-                        }
-                    }
-                }
-                children.push(rect);
+        for word in self.words {
+            let mut right_edge = x_position + word.len() as i32 * font_size.width;
+            if right_edge > viewport_size.width {
+                y_position += font_size.height;
+                x_position = 0;
+                right_edge = word.len() as i32 * font_size.width;
             }
-            ElementRect {
-                position,
-                global_position,
-                size,
-                font_size: new_font_size,
-                tag: element.element_type,
-                words: None,
-                children: children,
-            }
+            words.push(Word::new(word, Position::new(x_position, y_position)));
+            x_position = right_edge + font_size.width;
+        }
+
+        let sentences = vec![Sentence { words }];
+        let mut output = Paragraph {
+            sentences,
+            height: y_position + font_size.height,
+        };
+
+        output
+    }
+}
+
+/// Holds the layout of the html
+pub struct Layout {
+    pub paragraphs: Vec<Paragraph>,
+}
+
+impl Layout {
+    pub fn make_relative_to(&mut self, position: Position) {
+        for paragraph in &mut self.paragraphs {
+            paragraph.make_relative_to(position);
         }
     }
 
-    /// Returns the height of this element
-    pub fn get_height(&self) -> i32 {
-        let mut height = 0;
-        if let Some(words) = self.words.as_ref() {
-            for word in words {
-                if word.position.y + self.font_size.height > height {
-                    height = word.position.y + self.font_size.height;
-                }
-            }
-        }
-        for child in &self.children {
-            height = height.max(child.position.y + child.get_height());
-        }
-        height
-    }
+    pub fn from_body(element: &Element, viewport_size: Size, font_size: Size) -> Self {
+        let mut definitions = Vec::new();
 
-    pub fn get_right_edge(&self) -> i32 {
-        let mut max_x = 0;
-        if let Some(words) = self.words.as_ref() {
-            for word in words {
-                let len = word.position.x + self.font_size.width * word.word.len() as i32;
-                max_x = i32::max(len, max_x);
-            }
+        for child in &element.children {
+            definitions.push(collect_definition(child));
         }
-        let mut child_width = 0;
-        for child in &self.children {
-            child_width = i32::max(child.position.x + child.get_right_edge(), child_width);
-        }
-        i32::max(max_x, child_width)
-    }
 
-    pub fn get_next_horizontal_position(&self) -> Position {
-        let mut next_pos = Position::new(0, 0);
-
-        if let Some(words) = self.words.as_ref() {
-            for word in words {
-                if word.position.y > next_pos.y {
-                    next_pos = Position::new(
-                        word.position.x + self.font_size.width * word.word.len() as i32,
-                        word.position.y,
-                    );
-                } else if word.position.y == next_pos.y
-                    && word.position.x + self.font_size.width * word.word.len() as i32 > next_pos.x
-                {
-                    next_pos = Position::new(
-                        word.position.x + self.font_size.width * word.word.len() as i32,
-                        word.position.y,
-                    );
-                }
-            }
-        }
-        for child in &self.children {
-            let child_next = child.get_next_horizontal_position() + child.position;
-            if child_next.y > next_pos.y {
-                next_pos = child_next;
-            } else if child_next.y == next_pos.y && child_next.x > next_pos.x {
-                next_pos = child_next;
+        // Collect the paragraphs
+        let mut paragraphs = Vec::new();
+        for definition in definitions {
+            for paragraph in definition.children {
+                paragraphs.push(paragraph.compile(viewport_size, font_size));
             }
         }
 
-        next_pos
-    }
-
-    /// Create a [ElementRect] from text content
-    ///
-    /// * `tag` the tag of this element
-    /// * `text` the text of this element
-    /// * `position` the position of this element relative to parent
-    /// * `size` the size of this element
-    /// * `font_size` the font size of this element
-    pub fn from_text(
-        tag: Tag,
-        text: &str,
-        position: Position,
-        global_position: Position,
-        outer_size: Size,
-        font_size: Size,
-        expand_direction: ExpandDirection,
-    ) -> Self {
-        let mut size = outer_size;
-
-        // Just in case, so the program won't crash due to a divide-by-zero error.
-        if size.width <= 0 {
-            size.width = 1;
-        }
-
-        let words = text.split(" ").map(|x| x.trim().to_uppercase());
-
-        let mut element_words = Vec::new();
-
-        let mut current_x = 0;
+        // Adjust the positions of the paragraphs
         let mut current_y = 0;
-        for word in words {
-            let current_boundary_index = f32::floor(current_x as f32 / size.width as f32) as i32;
-            let next_boundary_index = current_boundary_index + 1;
-            let x_offset = word.len() as i32 * font_size.width + font_size.width;
-
-            if current_x + x_offset > size.width * next_boundary_index {
-                match expand_direction {
-                    ExpandDirection::Horizontal(start_pos) => {
-                        let delta = global_position.x - start_pos.x;
-                        size.width = outer_size.width + delta;
-                        current_x = next_boundary_index * size.width - delta;
-                        current_y =
-                            f32::floor((current_x + delta) as f32 / size.width as f32 as f32)
-                                as i32
-                                * font_size.height;
-                    }
-                    ExpandDirection::Vertical => {
-                        current_y = next_boundary_index * font_size.height;
-                        current_x = next_boundary_index * size.width;
-                    }
-                }
-            }
-
-            element_words.push(Word {
-                word: word.to_owned(),
-                position: Position::new(current_x % size.width, current_y),
-            });
-            current_x += x_offset;
+        let spacing = 50;
+        for paragraph in &mut paragraphs {
+            paragraph.make_relative_to(Position::new(0, current_y));
+            current_y += paragraph.height;
+            current_y += spacing;
         }
 
-        Self {
-            position,
-            global_position,
-            tag,
-            size,
-            font_size,
-            words: Some(element_words),
-            children: Vec::new(),
-        }
+        Self { paragraphs }
     }
 }
