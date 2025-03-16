@@ -9,38 +9,65 @@ pub enum Tag {
     Body,
     Html,
     Paragraph,
+    Button,
+    Fieldset,
     Title,
+    Small,
+    Select,
     Meta,
     Link,
     Head,
     Span,
     Center,
+    Main,
     Input,
+    Bdi,
     Table,
     Script,
+    Footer,
     Header,
+    Strong,
+    Style,
+    Label,
+    Option,
     Form,
     Img,
+    Nav,
     Li,
     Td,
     Ul,
     Br,
+    Hr,
     Tr,
     A,
     B,
     U,
+    I,
 }
 
 impl Tag {
     pub fn from_string(tag: &str) -> Result<Self, String> {
         match tag {
             "h1" => Ok(Tag::H(1)),
+            "h2" => Ok(Tag::H(2)),
             "div" => Ok(Tag::Div),
             "body" => Ok(Tag::Body),
+            "main" => Ok(Tag::Main),
             "html" => Ok(Tag::Html),
+            "footer" => Ok(Tag::Footer),
+            "small" => Ok(Tag::Small),
+            "label" => Ok(Tag::Label),
+            "fieldset" => Ok(Tag::Fieldset),
+            "bdi" => Ok(Tag::Bdi),
             "p" => Ok(Tag::Paragraph),
+            "i" => Ok(Tag::I),
             "title" => Ok(Tag::Title),
+            "option" => Ok(Tag::Option),
+            "select" => Ok(Tag::Select),
+            "nav" => Ok(Tag::Nav),
+            "style" => Ok(Tag::Style),
             "header" => Ok(Tag::Header),
+            "button" => Ok(Tag::Button),
             "meta" => Ok(Tag::Meta),
             "head" => Ok(Tag::Head),
             "link" => Ok(Tag::Link),
@@ -53,12 +80,14 @@ impl Tag {
             "tr" => Ok(Tag::Tr),
             "li" => Ok(Tag::Li),
             "br" => Ok(Tag::Br),
+            "hr" => Ok(Tag::Hr),
             "table" => Ok(Tag::Table),
             "center" => Ok(Tag::Center),
             "span" => Ok(Tag::Span),
             "input" => Ok(Tag::Input),
             "form" => Ok(Tag::Form),
             "script" => Ok(Tag::Script),
+            "strong" => Ok(Tag::Strong),
             v => Err(format!("Unknown tag: {}", v)),
         }
     }
@@ -210,9 +239,13 @@ fn parse_attributes(iter: &mut Peekable<Chars>) -> HashMap<String, String> {
             }
             Some(_) => {
                 let identifier = get_identifier(iter);
-                assert_eq!(iter.next(), Some('='));
-                let string = get_string(iter);
-                output.insert(identifier, string);
+
+                // Empty attributes are a thing, go figure
+                if iter.peek() == Some(&'=') {
+                    iter.next();
+                    let string = get_string(iter);
+                    output.insert(identifier, string);
+                }
             }
             None => panic!("Attributes ran out"),
         }
@@ -231,7 +264,13 @@ fn parse_html_element(iter: &mut Peekable<Chars>) -> Element {
 
     // These elements for whatever reason aren't self terminating sometimes, so we gotta check for
     // them. Except of course when they are self terminating.
-    if tag == "link" || tag == "meta" || tag == "img" || tag == "input" || tag == "br" {
+    if tag == "link"
+        || tag == "meta"
+        || tag == "img"
+        || tag == "input"
+        || tag == "br"
+        || tag == "hr"
+    {
         assert_eq!(iter.next(), Some('>'));
         let mut element = Element::new(Tag::from_string(&tag).unwrap());
         element.attributes = attributes;
