@@ -283,16 +283,16 @@ impl Window {
         self.open();
     }
 
-    pub fn render_string(&self, frame: &mut Frame, string: &str, x: i32, y: i32) {
+    pub fn render_string(&self, frame: &mut Frame, string: &str, x: i32, y: i32, font_scale: f32) {
         for (index, character) in string.chars().enumerate() {
-            let gl_coordinates =
-                self.screen_to_opengl_coordinates(x + index as i32 * Self::FONT_SIZE as i32, y);
+            let x_coordinates = x + index as i32 * (Self::FONT_SIZE * font_scale) as i32;
+            let gl_coordinates = self.screen_to_opengl_coordinates(x_coordinates as i32, y);
             self.render_character(
                 character.to_uppercase().next().unwrap(),
                 frame,
                 gl_coordinates[0],
                 gl_coordinates[1],
-                1.0,
+                font_scale,
             );
         }
     }
@@ -307,6 +307,7 @@ impl Window {
                         &word.word,
                         word.position.x,
                         word.position.y + self.scroll_y,
+                        paragraph.font_scale,
                     );
                 }
             }

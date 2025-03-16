@@ -85,6 +85,7 @@ impl Sentence {
 pub struct Paragraph {
     pub sentences: Vec<Sentence>,
     pub height: i32,
+    pub font_scale: f32,
 }
 
 impl Paragraph {
@@ -93,14 +94,6 @@ impl Paragraph {
             sentence.make_relative_to(position);
         }
     }
-}
-
-/// The direction where the current tree of nodes will grow towards. This will usually be in the
-/// down and right directions respectiply
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum ExpandDirection {
-    Vertical,
-    Horizontal(Position),
 }
 
 /// A definition of an element rect that has not been created yet. This is a part of the
@@ -145,20 +138,30 @@ pub fn collect_definition(element: &Element) -> ElementDefinition {
 pub struct ParagraphDefinition {
     pub tag: Tag,
     pub words: Vec<String>,
+    pub font_scale: f32,
 }
 
 impl ParagraphDefinition {
     pub fn from_string(tag: Tag, string: &str) -> Self {
         let words = string.split(" ").map(|x| x.to_owned()).collect();
-        Self { tag, words }
+        Self {
+            tag,
+            words,
+            font_scale: match tag {
+                Tag::H(1) => 2.0,
+                _ => 1.0,
+            },
+        }
     }
 
     /// Returns a compiled version of this paragraph. The output hasn't yet been given a position,
     /// so it will be positioned at 0, 0
-    pub fn compile(self, viewport_size: Size, font_size: Size) -> Paragraph {
+    pub fn compile(self, viewport_size: Size, mut font_size: Size) -> Paragraph {
         let mut words = Vec::new();
         let mut x_position: i32 = 0;
         let mut y_position: i32 = 0;
+        font_size.width = (font_size.width as f32 * self.font_scale) as i32;
+        font_size.height = (font_size.height as f32 * self.font_scale) as i32;
 
         for word in self.words {
             let mut right_edge = x_position + word.len() as i32 * font_size.width;
@@ -172,11 +175,11 @@ impl ParagraphDefinition {
         }
 
         let sentences = vec![Sentence { words }];
-        
 
         Paragraph {
             sentences,
             height: y_position + font_size.height,
+            font_scale: self.font_scale,
         }
     }
 }
