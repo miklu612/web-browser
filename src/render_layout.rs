@@ -121,9 +121,19 @@ pub fn collect_definition(element: &Element) -> ElementDefinition {
     };
     for child in &element.children {
         if child.element_type == Tag::PlainText {
-            definition
-                .children
-                .push(ParagraphDefinition::from_string(&child.inner_text));
+            definition.children.push(ParagraphDefinition::from_string(
+                element.element_type,
+                &child.inner_text,
+            ));
+        } else if child.element_type == Tag::Span || child.element_type == Tag::A {
+            let child_definition = collect_definition(child);
+            for child_paragraph in child_definition.children {
+                if let Some(last) = definition.children.last_mut() {
+                    last.words.extend(child_paragraph.words.clone());
+                } else {
+                    definition.children.push(child_paragraph);
+                }
+            }
         } else {
             let child_definition = collect_definition(child);
             definition.children.extend(child_definition.children);
@@ -134,13 +144,14 @@ pub fn collect_definition(element: &Element) -> ElementDefinition {
 
 /// A collection of elements that should be drawn inline
 pub struct ParagraphDefinition {
+    pub tag: Tag,
     pub words: Vec<String>,
 }
 
 impl ParagraphDefinition {
-    pub fn from_string(string: &str) -> Self {
+    pub fn from_string(tag: Tag, string: &str) -> Self {
         let words = string.split(" ").map(|x| x.to_owned()).collect();
-        Self { words }
+        Self { tag, words }
     }
 
     /// Returns a compiled version of this paragraph. The output hasn't yet been given a position,
