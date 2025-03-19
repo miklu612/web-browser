@@ -112,8 +112,6 @@ pub struct ElementDefinition {
     pub children: Vec<ParagraphDefinition>,
 }
 
-impl ElementDefinition {}
-
 /// Collects the different element definitions from the element
 pub fn collect_definition(element: &Element) -> ElementDefinition {
     let mut definition = ElementDefinition {
@@ -152,7 +150,7 @@ pub fn collect_definition(element: &Element) -> ElementDefinition {
             if allow_paragraph_connecting {
                 for mut child_paragraph in child_definition.children {
                     if let Some(last) = definition.children.last_mut() {
-                        last.words.extend(child_paragraph.words.clone());
+                        last.sentences.extend(child_paragraph.sentences.clone());
                     } else {
                         definition.children.push(child_paragraph);
                     }
@@ -171,10 +169,16 @@ pub fn collect_definition(element: &Element) -> ElementDefinition {
     definition
 }
 
+#[derive(Clone)]
+pub struct SentenceDefinition {
+    pub tag: Tag,
+    pub words: Vec<String>,
+}
+
 /// A collection of elements that should be drawn inline
 pub struct ParagraphDefinition {
     pub tag: Tag,
-    pub words: Vec<String>,
+    pub sentences: Vec<SentenceDefinition>,
     pub font_scale: f32,
     pub background_color: Option<Color>,
 }
@@ -184,7 +188,7 @@ impl ParagraphDefinition {
         let words = string.split(" ").map(|x| x.to_owned()).collect();
         Self {
             tag,
-            words,
+            sentences: vec![SentenceDefinition { words, tag }],
             font_scale: match tag {
                 Tag::H(1) => 2.0,
                 _ => 1.0,
@@ -202,15 +206,20 @@ impl ParagraphDefinition {
         font_size.width = (font_size.width as f32 * self.font_scale) as i32;
         font_size.height = (font_size.height as f32 * self.font_scale) as i32;
 
-        for word in self.words {
-            let mut right_edge = x_position + word.len() as i32 * font_size.width;
-            if right_edge > viewport_size.width {
-                y_position += font_size.height;
-                x_position = 0;
-                right_edge = word.len() as i32 * font_size.width;
+        for sentence in &self.sentences {
+            for word in &sentence.words {
+                let mut right_edge = x_position + word.len() as i32 * font_size.width;
+                if right_edge > viewport_size.width {
+                    y_position += font_size.height;
+                    x_position = 0;
+                    right_edge = word.len() as i32 * font_size.width;
+                }
+                words.push(Word::new(
+                    word.clone(),
+                    Position::new(x_position, y_position),
+                ));
+                x_position = right_edge + font_size.width;
             }
-            words.push(Word::new(word, Position::new(x_position, y_position)));
-            x_position = right_edge + font_size.width;
         }
 
         let sentences = vec![Sentence { words }];
