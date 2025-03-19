@@ -77,8 +77,10 @@ impl Word {
 
 /// A container for multiple words. Not a single sentence as the name would imply. These are needed
 /// to apply different styles and functionality to different sections in a single paragraph
+#[derive(Debug)]
 pub struct Sentence {
     pub words: Vec<Word>,
+    pub href: Option<String>,
 }
 
 impl Sentence {
@@ -90,6 +92,7 @@ impl Sentence {
 }
 
 /// A container for multiple sentences.
+#[derive(Debug)]
 pub struct Paragraph {
     pub sentences: Vec<Sentence>,
     pub height: i32,
@@ -140,8 +143,7 @@ pub fn collect_definition(element: &Element) -> ElementDefinition {
 
     for child in &element.children {
         if child.element_type == Tag::PlainText {
-            let mut paragraph =
-                ParagraphDefinition::from_string(element.element_type, &child.inner_text);
+            let mut paragraph = ParagraphDefinition::from_string(&element, &child.inner_text);
             paragraph.background_color = background_color;
             definition.children.push(paragraph);
             allow_paragraph_connecting = true;
@@ -173,6 +175,7 @@ pub fn collect_definition(element: &Element) -> ElementDefinition {
 pub struct SentenceDefinition {
     pub tag: Tag,
     pub words: Vec<String>,
+    pub href: Option<String>,
 }
 
 /// A collection of elements that should be drawn inline
@@ -184,12 +187,22 @@ pub struct ParagraphDefinition {
 }
 
 impl ParagraphDefinition {
-    pub fn from_string(tag: Tag, string: &str) -> Self {
+    /// Create an element with the string as its content
+    ///
+    /// * `element` - The parent element of this string. The inner content is not used from this,
+    /// but the attributes are used.
+    ///
+    /// * `string` - The content this element contains
+    pub fn from_string(element: &Element, string: &str) -> Self {
         let words = string.split(" ").map(|x| x.to_owned()).collect();
         Self {
-            tag,
-            sentences: vec![SentenceDefinition { words, tag }],
-            font_scale: match tag {
+            tag: element.element_type,
+            sentences: vec![SentenceDefinition {
+                words,
+                tag: element.element_type,
+                href: element.get_attribute("href"),
+            }],
+            font_scale: match element.element_type {
                 Tag::H(1) => 2.0,
                 _ => 1.0,
             },
@@ -200,13 +213,14 @@ impl ParagraphDefinition {
     /// Returns a compiled version of this paragraph. The output hasn't yet been given a position,
     /// so it will be positioned at 0, 0
     pub fn compile(self, viewport_size: Size, mut font_size: Size) -> Paragraph {
-        let mut words = Vec::new();
         let mut x_position: i32 = 0;
+        let mut sentences = Vec::new();
         let mut y_position: i32 = 0;
         font_size.width = (font_size.width as f32 * self.font_scale) as i32;
         font_size.height = (font_size.height as f32 * self.font_scale) as i32;
 
         for sentence in &self.sentences {
+            let mut words = Vec::new();
             for word in &sentence.words {
                 let mut right_edge = x_position + word.len() as i32 * font_size.width;
                 if right_edge > viewport_size.width {
@@ -220,9 +234,11 @@ impl ParagraphDefinition {
                 ));
                 x_position = right_edge + font_size.width;
             }
+            sentences.push(Sentence {
+                words,
+                href: sentence.href.clone(),
+            });
         }
-
-        let sentences = vec![Sentence { words }];
 
         Paragraph {
             sentences,
@@ -234,6 +250,7 @@ impl ParagraphDefinition {
 }
 
 /// Holds the layout of the html
+#[derive(Debug)]
 pub struct Layout {
     pub paragraphs: Vec<Paragraph>,
 }

@@ -134,6 +134,10 @@ impl Element {
             child.parse_inline_css();
         }
     }
+
+    pub fn get_attribute(&self, key: &str) -> Option<String> {
+        self.attributes.get(key).cloned()
+    }
 }
 
 pub fn get_identifier(iter: &mut Peekable<Chars>) -> String {
