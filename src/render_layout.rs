@@ -126,8 +126,8 @@ pub fn collect_definition(element: &Element) -> ElementDefinition {
     // Handle some css stuff
     let mut background_color = None;
     for rule in &element.inner_styles {
-        match rule {
-            Rule::BackgroundColor(color) => match color {
+        if let Rule::BackgroundColor(color) = rule {
+            match color {
                 CssColor::Hex(r, g, b) => {
                     background_color = Some(Color {
                         r: *r as f32 / 255.0,
@@ -136,21 +136,20 @@ pub fn collect_definition(element: &Element) -> ElementDefinition {
                     });
                 }
                 _ => panic!("Color not implemented"),
-            },
-            _ => {}
+            }
         }
     }
 
     for child in &element.children {
         if child.element_type == Tag::PlainText {
-            let mut paragraph = ParagraphDefinition::from_string(&element, &child.inner_text);
+            let mut paragraph = ParagraphDefinition::from_string(element, &child.inner_text);
             paragraph.background_color = background_color;
             definition.children.push(paragraph);
             allow_paragraph_connecting = true;
         } else if child.element_type == Tag::Span || child.element_type == Tag::A {
             let child_definition = collect_definition(child);
             if allow_paragraph_connecting {
-                for mut child_paragraph in child_definition.children {
+                for child_paragraph in child_definition.children {
                     if let Some(last) = definition.children.last_mut() {
                         last.sentences.extend(child_paragraph.sentences.clone());
                     } else {
@@ -190,7 +189,7 @@ impl ParagraphDefinition {
     /// Create an element with the string as its content
     ///
     /// * `element` - The parent element of this string. The inner content is not used from this,
-    /// but the attributes are used.
+    ///               but the attributes are used.
     ///
     /// * `string` - The content this element contains
     pub fn from_string(element: &Element, string: &str) -> Self {
