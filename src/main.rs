@@ -5,6 +5,7 @@ use std::{fs::File, io::prelude::Read, path::Path};
 use window::Window;
 
 mod bound;
+mod color;
 mod css;
 mod document;
 mod font;

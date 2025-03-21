@@ -5,6 +5,7 @@
 //! positions are relative to the parent. And their children are relative to their parent all the
 //! way down until there are no children.
 
+use crate::color::Color;
 use crate::css::{Color as CssColor, Rule};
 use crate::font::Font;
 use crate::html::{Element, Tag};
@@ -51,13 +52,6 @@ impl Size {
             height: (self.height as f32 * scale) as i32,
         }
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Color {
-    pub r: f32,
-    pub g: f32,
-    pub b: f32,
 }
 
 /// A container for individual words.
@@ -137,6 +131,7 @@ pub fn collect_definition(element: &Element) -> ElementDefinition {
                         r: *r as f32 / 255.0,
                         g: *g as f32 / 255.0,
                         b: *b as f32 / 255.0,
+                        a: 1.0,
                     });
                 }
                 _ => panic!("Color not implemented"),

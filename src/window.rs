@@ -1,7 +1,8 @@
+use crate::color::Color;
 use crate::document::Document;
 use crate::font::Font;
 use crate::html::{Element, Tag};
-use crate::render_layout::{Color as LayoutColor, Layout, Position, Size};
+use crate::render_layout::{Layout, Position, Size};
 use glium::backend::glutin::glutin;
 use glium::{
     backend::glutin::Display,
@@ -27,20 +28,6 @@ use winit::{
     raw_window_handle::{HasDisplayHandle, HasWindowHandle},
     window::{Window as WinitWindow, WindowId},
 };
-
-pub enum Color {
-    Black,
-    LinkBlue,
-}
-
-impl Color {
-    pub fn to_color(&self) -> [f32; 3] {
-        match self {
-            Self::Black => [0.0, 0.0, 0.0],
-            Self::LinkBlue => [0.3, 0.3, 0.9],
-        }
-    }
-}
 
 #[derive(Copy, Clone)]
 struct Vertex {
@@ -293,7 +280,7 @@ impl Window {
         x: i32,
         y: i32,
         font_size: f32,
-        background_color: Option<LayoutColor>,
+        background_color: Option<Color>,
     ) {
         // Culling
         let top_y = self.screen_to_opengl_coordinates(0, y)[1];
@@ -330,7 +317,7 @@ impl Window {
         let uniforms = uniform![
             transform: compiled_matrix,
             font_texture: texture,
-            color_addition: Color::Black.to_color(),
+            color_addition: Color::black().to_array_no_alpha(),
             background_color: bg_color
         ];
 
