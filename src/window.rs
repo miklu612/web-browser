@@ -186,13 +186,12 @@ impl ApplicationHandler for Window {
                     out vec4 color;
                     in vec2 texCoord;
                     uniform sampler2D font_texture;
-                    uniform vec3 color_addition;
                     uniform vec4 background_color;
                     void main() {
                         color = texture(font_texture, texCoord);
-                        color.x = color.x + color_addition.x;
-                        color.y = color.y + color_addition.y;
-                        color.z = color.z + color_addition.z;
+                        color.x = color.x;
+                        color.y = color.y;
+                        color.z = color.z;
 
                         // 0.1 is like a toggle switch for the time being
                         if(color.a < 0.1 && background_color.a > 0.1) {
@@ -281,6 +280,7 @@ impl Window {
         y: i32,
         font_size: f32,
         background_color: Option<Color>,
+        text_color: Color,
     ) {
         // Culling
         let top_y = self.screen_to_opengl_coordinates(0, y)[1];
@@ -292,7 +292,11 @@ impl Window {
             return;
         }
 
-        let rgba_image = self.font.as_ref().unwrap().render_string(string, font_size);
+        let rgba_image = self
+            .font
+            .as_ref()
+            .unwrap()
+            .render_string(string, font_size, text_color);
         let texture = self.rgba_image_to_texture(&rgba_image);
 
         let size = self.screen_to_relative_coordinates(
@@ -317,7 +321,6 @@ impl Window {
         let uniforms = uniform![
             transform: compiled_matrix,
             font_texture: texture,
-            color_addition: Color::black().to_array_no_alpha(),
             background_color: bg_color
         ];
 
@@ -339,6 +342,10 @@ impl Window {
         let page_layout = self.create_page_layout();
         for paragraph in &page_layout.paragraphs {
             for sentence in &paragraph.sentences {
+                let color = match sentence.text_color {
+                    Some(v) => v,
+                    None => Color::black(),
+                };
                 for word in &sentence.words {
                     self.render_string(
                         frame,
@@ -347,6 +354,7 @@ impl Window {
                         word.position.y + self.scroll_y,
                         paragraph.font_size,
                         paragraph.background_color,
+                        color,
                     );
                 }
             }

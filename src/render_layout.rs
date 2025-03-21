@@ -79,6 +79,7 @@ impl Word {
 pub struct Sentence {
     pub words: Vec<Word>,
     pub href: Option<String>,
+    pub text_color: Option<Color>,
 }
 
 impl Sentence {
@@ -174,6 +175,7 @@ pub struct SentenceDefinition {
     pub tag: Tag,
     pub words: Vec<String>,
     pub href: Option<String>,
+    pub text_color: Option<Color>,
 }
 
 /// A collection of elements that should be drawn inline
@@ -193,12 +195,17 @@ impl ParagraphDefinition {
     /// * `string` - The content this element contains
     pub fn from_string(element: &Element, string: &str) -> Self {
         let words = string.split(" ").map(|x| x.to_owned()).collect();
+        let text_color = match element.element_type {
+            Tag::A => Some(Color::blue()),
+            _ => None,
+        };
         Self {
             tag: element.element_type,
             sentences: vec![SentenceDefinition {
                 words,
                 tag: element.element_type,
                 href: element.get_attribute("href"),
+                text_color,
             }],
             font_size: match element.element_type {
                 Tag::H(1) => DEFAULT_H1_SIZE,
@@ -235,6 +242,7 @@ impl ParagraphDefinition {
             sentences.push(Sentence {
                 words,
                 href: sentence.href.clone(),
+                text_color: sentence.text_color,
             });
         }
 

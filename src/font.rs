@@ -1,4 +1,5 @@
 use crate::bound::Bound;
+use crate::color::Color;
 use ab_glyph::{point, Font as AbFont, FontVec, ScaleFont};
 use glium::Texture2d;
 use image::{Rgba, RgbaImage};
@@ -53,13 +54,14 @@ impl Font {
         width
     }
 
-    pub fn render_string(&self, word: &str, font_size: f32) -> RgbaImage {
+    pub fn render_string(&self, word: &str, font_size: f32, font_color: Color) -> RgbaImage {
         let mut output = RgbaImage::new(
             self.get_word_width(word, font_size) as u32 + 1,
             self.get_glyph_height(font_size) as u32 + 1,
         );
 
         let mut previous_point = point(0.0, self.font.as_scaled(font_size).ascent());
+        let color = font_color.to_8_bit();
         for character in word.chars() {
             let glyph = self
                 .font
@@ -72,7 +74,7 @@ impl Font {
                         output.put_pixel(
                             x + bounding_box.min.x as u32,
                             (y as i32 + bounding_box.min.y as i32) as u32,
-                            Rgba([0, 0, 0, (255.0 * c) as u8]),
+                            Rgba([color[0], color[1], color[2], (255.0 * c) as u8]),
                         );
                     }
                 });
