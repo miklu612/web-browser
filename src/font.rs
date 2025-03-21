@@ -5,8 +5,7 @@ use image::{Rgba, RgbaImage};
 use std::{collections::HashMap, fs::File, io::Read, path::Path};
 
 pub struct Font {
-    glyphs: HashMap<char, Texture2d>,
-    pub font: FontVec,
+    font: FontVec,
 }
 
 impl Font {
@@ -25,10 +24,7 @@ impl Font {
             Err(e) => return Err(format!("{}", e)),
         };
 
-        Ok(Self {
-            glyphs: HashMap::new(),
-            font,
-        })
+        Ok(Self { font })
     }
 
     pub fn get_glyph_width(&self, character: char, font_size: f32) -> i32 {
