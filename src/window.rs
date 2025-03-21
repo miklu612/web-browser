@@ -16,9 +16,9 @@ use glium::{
     texture::RawImage2d,
     uniform, Blend, DrawParameters, Frame, IndexBuffer, Program, Surface, Texture2d, VertexBuffer,
 };
-use image::{ImageReader, RgbaImage};
+use image::RgbaImage;
 use nalgebra::{Matrix4, Vector3};
-use std::{collections::HashMap, num::NonZero, path::Path};
+use std::{num::NonZero, path::Path};
 use winit::{
     application::ApplicationHandler,
     event::{ElementState, KeyEvent, WindowEvent},
@@ -112,8 +112,6 @@ pub struct Window {
     display: Option<Display<WindowSurface>>,
     rect: Option<Rectangle>,
     program: Option<Program>,
-    font_texture: Option<Texture2d>,
-    character_rects: HashMap<char, Rectangle>,
     document: Option<Document>,
     scroll_y: i32,
     font: Option<Font>,
@@ -258,15 +256,11 @@ impl Window {
             display: None,
             rect: None,
             program: None,
-            font_texture: None,
-            character_rects: HashMap::new(),
             scroll_y: 0,
             document: None,
             font: None,
         }
     }
-
-    const FONT_SIZE: f32 = 20.0;
 
     /// Transforms screen coordinates into a -1.0 - 1.0 scale
     pub fn screen_to_opengl_coordinates(&self, x: i32, y: i32) -> [f32; 2] {
@@ -293,7 +287,7 @@ impl Window {
     }
 
     pub fn render_string(
-        &mut self,
+        &self,
         frame: &mut Frame,
         string: &str,
         x: i32,
@@ -352,7 +346,7 @@ impl Window {
             .unwrap();
     }
 
-    pub fn render_current_page(&mut self, frame: &mut Frame) {
+    pub fn render_current_page(&self, frame: &mut Frame) {
         let page_layout = self.create_page_layout();
         for paragraph in &page_layout.paragraphs {
             for sentence in &paragraph.sentences {
@@ -392,60 +386,6 @@ impl Window {
         layout
     }
 
-    pub fn render_character(
-        &mut self,
-        character: char,
-        frame: &mut Frame,
-        x: f32,
-        y: f32,
-        scale: f32,
-        background_color: Option<LayoutColor>,
-    ) {
-        // If the character is not visibile, don't render it.
-        if !(-1.0..=1.0).contains(&y) {
-            return;
-        }
-
-        let size = self.screen_to_relative_coordinates(
-            (Self::FONT_SIZE * scale) as i32,
-            (Self::FONT_SIZE * scale) as i32,
-        );
-        let mat4 = Matrix4::identity()
-            .append_nonuniform_scaling(&Vector3::new(size[0], size[1], 1.0))
-            .append_translation(&Vector3::new(x, y, 0.0));
-        let compiled_matrix = TryInto::<[[f32; 4]; 4]>::try_into(mat4.data.0).unwrap();
-
-        let character_rect = self
-            .character_rects
-            .get(&character)
-            .unwrap_or(self.character_rects.get(&'A').unwrap());
-
-        let bg_color = match background_color {
-            Some(color) => [color.r, color.g, color.b, 1.0],
-            None => [0.0, 0.0, 0.0, 0.0],
-        };
-
-        let uniforms = uniform![
-            transform: compiled_matrix,
-            font_texture: self.font_texture.as_ref().unwrap(),
-            color_addition: Color::Black.to_color(),
-            background_color: bg_color
-        ];
-
-        frame
-            .draw(
-                &character_rect.vao,
-                &character_rect.ebo,
-                self.program.as_ref().unwrap(),
-                &uniforms,
-                &DrawParameters {
-                    blend: Blend::alpha_blending(),
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-    }
-
     pub fn rgba_image_to_texture(&self, image: &RgbaImage) -> Texture2d {
         let dimensions = image.dimensions();
         let raw_image = RawImage2d::from_raw_rgba_reversed(&image.clone().into_raw(), dimensions);
@@ -459,137 +399,6 @@ impl Window {
             ))
             .unwrap(),
         );
-
-        let image_data = ImageReader::open("textures/font.png")
-            .unwrap()
-            .decode()
-            .unwrap()
-            .to_rgba8();
-
-        let raw_image = RawImage2d::from_raw_rgba_reversed(
-            &image_data.clone().into_raw(),
-            image_data.dimensions(),
-        );
-
-        self.font_texture =
-            Some(Texture2d::new(self.display.as_ref().unwrap(), raw_image).unwrap());
-
-        let stride_x = 143.0 / image_data.width() as f32;
-        let stride_y = 200.0 / image_data.height() as f32;
-
-        // Load the first row of letters
-        for x in 0..14 {
-            self.character_rects.insert(
-                (b'A' + x as u8) as char,
-                Rectangle::with_uv(
-                    self.display.as_ref().unwrap(),
-                    [
-                        [stride_x * x as f32, 1.0 - stride_y],
-                        [stride_x * x as f32, 1.0],
-                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y],
-                        [stride_x * (x as f32 + 1.0), 1.0],
-                    ],
-                ),
-            );
-        }
-
-        // Load the second row of letters
-        for x in 0..12 {
-            self.character_rects.insert(
-                (b'O' + x as u8) as char,
-                Rectangle::with_uv(
-                    self.display.as_ref().unwrap(),
-                    [
-                        [stride_x * x as f32, 1.0 - stride_y * 2.0],
-                        [stride_x * x as f32, 1.0 - stride_y],
-                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 2.0],
-                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y],
-                    ],
-                ),
-            );
-        }
-
-        // Load the numbers
-        for x in 12..14 {
-            self.character_rects.insert(
-                (b'0' + (x - 12) as u8) as char,
-                Rectangle::with_uv(
-                    self.display.as_ref().unwrap(),
-                    [
-                        [stride_x * x as f32, 1.0 - stride_y * 2.0],
-                        [stride_x * x as f32, 1.0 - stride_y],
-                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 2.0],
-                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y],
-                    ],
-                ),
-            );
-        }
-
-        for x in 0..8 {
-            self.character_rects.insert(
-                (b'2' + x as u8) as char,
-                Rectangle::with_uv(
-                    self.display.as_ref().unwrap(),
-                    [
-                        [stride_x * x as f32, 1.0 - stride_y * 3.0],
-                        [stride_x * x as f32, 1.0 - stride_y * 2.0],
-                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 3.0],
-                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 2.0],
-                    ],
-                ),
-            );
-        }
-
-        // Load . ? ! ( ) < characters
-        let char_arr = [b'.', b'?', b'!', b'(', b')', b'<'];
-        for x in 8..14 {
-            self.character_rects.insert(
-                (char_arr[x - 8]) as char,
-                Rectangle::with_uv(
-                    self.display.as_ref().unwrap(),
-                    [
-                        [stride_x * x as f32, 1.0 - stride_y * 3.0],
-                        [stride_x * x as f32, 1.0 - stride_y * 2.0],
-                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 3.0],
-                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 2.0],
-                    ],
-                ),
-            );
-        }
-
-        let char_arr: [u8; 14] = [
-            b'>', b':', b',', b'-', b'_', b'+', b'*', b';', b'{', b'}', b'/', b'@', b'#', b'[',
-        ];
-        for (x, character) in char_arr.iter().enumerate() {
-            self.character_rects.insert(
-                *character as char,
-                Rectangle::with_uv(
-                    self.display.as_ref().unwrap(),
-                    [
-                        [stride_x * x as f32, 1.0 - stride_y * 4.0],
-                        [stride_x * x as f32, 1.0 - stride_y * 3.0],
-                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 4.0],
-                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 3.0],
-                    ],
-                ),
-            );
-        }
-
-        let char_arr: [u8; 1] = [b']'];
-        for (x, character) in char_arr.iter().enumerate() {
-            self.character_rects.insert(
-                *character as char,
-                Rectangle::with_uv(
-                    self.display.as_ref().unwrap(),
-                    [
-                        [stride_x * x as f32, 1.0 - stride_y * 5.0],
-                        [stride_x * x as f32, 1.0 - stride_y * 4.0],
-                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 5.0],
-                        [stride_x * (x as f32 + 1.0), 1.0 - stride_y * 4.0],
-                    ],
-                ),
-            );
-        }
     }
 
     pub fn open(&mut self) {

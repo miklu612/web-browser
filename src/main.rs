@@ -1,6 +1,5 @@
-use css::parse_css;
 use font::Font;
-use html::{parse_html, Tag};
+use html::parse_html;
 use requests::get_site;
 use std::{fs::File, io::prelude::Read, path::Path};
 use window::Window;
@@ -41,7 +40,7 @@ fn render_text(text: &str) {
     ))
     .unwrap();
     let image = font.render_string(text);
-    image.save("output.png");
+    image.save("output.png").unwrap();
 }
 
 fn main() {

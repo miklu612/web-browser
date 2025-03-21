@@ -1,5 +1,5 @@
 use crate::bound::Bound;
-use ab_glyph::{point, Font as AbFont, FontVec, Glyph, ScaleFont};
+use ab_glyph::{point, Font as AbFont, FontVec, ScaleFont};
 use glium::Texture2d;
 use image::{Rgba, RgbaImage};
 use std::{collections::HashMap, fs::File, io::Read, path::Path};
@@ -13,12 +13,12 @@ const FONT_SCALE: f32 = 40.0;
 
 impl Font {
     pub fn load(path: &Path) -> Result<Self, String> {
-        let mut file = match File::open(path) {
+        let file = match File::open(path) {
             Ok(v) => v,
             Err(e) => return Err(e.to_string()),
         };
 
-        let mut bytes = file.bytes();
+        let bytes = file.bytes();
         let bytes: Vec<u8> = bytes.map(|x| x.unwrap()).collect();
         println!("{}", bytes.len());
 
@@ -29,7 +29,7 @@ impl Font {
 
         Ok(Self {
             glyphs: HashMap::new(),
-            font: font,
+            font,
         })
     }
 
@@ -45,10 +45,7 @@ impl Font {
     pub fn get_glyph_bounds(&self, character: char) -> Bound<i32> {
         let font_scaled = self.font.as_scaled(FONT_SCALE);
         let glyph = self.font.glyph_id(character).with_scale(FONT_SCALE);
-        Bound::<i32>::new(
-            self.get_glyph_width(character) as i32,
-            font_scaled.height() as i32,
-        )
+        Bound::<i32>::new(self.get_glyph_width(character), font_scaled.height() as i32)
     }
 
     pub fn get_word_width(&self, word: &str) -> i32 {
@@ -84,7 +81,7 @@ impl Font {
                 outline.draw(|x, y, c| {
                     if c > 0.0 {
                         output.put_pixel(
-                            x as u32 + bounding_box.min.x as u32,
+                            x + bounding_box.min.x as u32,
                             (y as i32 + bounding_box.min.y as i32) as u32,
                             Rgba([0, 0, 0, (255.0 * c) as u8]),
                         );

@@ -212,7 +212,7 @@ impl ParagraphDefinition {
 
     /// Returns a compiled version of this paragraph. The output hasn't yet been given a position,
     /// so it will be positioned at 0, 0
-    pub fn compile(self, viewport_size: Size, mut font: &Font) -> Paragraph {
+    pub fn compile(self, viewport_size: Size, font: &Font) -> Paragraph {
         let seperation_width = 10;
         let seperation_height = font.get_glyph_height();
         let mut x_position: i32 = 0;
