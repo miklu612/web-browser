@@ -7,3 +7,4 @@ feels as if they are only in it for the money, hold for a couple of exceptions.
 
 The main goal for now is to have a web browser that """"""""works"""""""" if
 you really try to use it and there is no other choice.
+

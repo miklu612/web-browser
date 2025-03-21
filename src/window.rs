@@ -1,4 +1,5 @@
 use crate::document::Document;
+use crate::font::Font;
 use crate::html::{Element, Tag};
 use crate::render_layout::{Color as LayoutColor, Layout, Position, Size};
 use glium::backend::glutin::glutin;
@@ -15,9 +16,9 @@ use glium::{
     texture::RawImage2d,
     uniform, Blend, DrawParameters, Frame, IndexBuffer, Program, Surface, Texture2d, VertexBuffer,
 };
-use image::ImageReader;
+use image::{ImageReader, RgbaImage};
 use nalgebra::{Matrix4, Vector3};
-use std::{collections::HashMap, num::NonZero};
+use std::{collections::HashMap, num::NonZero, path::Path};
 use winit::{
     application::ApplicationHandler,
     event::{ElementState, KeyEvent, WindowEvent},
@@ -115,6 +116,7 @@ pub struct Window {
     character_rects: HashMap<char, Rectangle>,
     document: Option<Document>,
     scroll_y: i32,
+    font: Option<Font>,
 }
 
 impl ApplicationHandler for Window {
@@ -260,6 +262,7 @@ impl Window {
             character_rects: HashMap::new(),
             scroll_y: 0,
             document: None,
+            font: None,
         }
     }
 
@@ -290,7 +293,7 @@ impl Window {
     }
 
     pub fn render_string(
-        &self,
+        &mut self,
         frame: &mut Frame,
         string: &str,
         x: i32,
@@ -298,21 +301,58 @@ impl Window {
         font_scale: f32,
         background_color: Option<LayoutColor>,
     ) {
-        for (index, character) in string.chars().enumerate() {
-            let x_coordinates = x + index as i32 * (Self::FONT_SIZE * font_scale) as i32;
-            let gl_coordinates = self.screen_to_opengl_coordinates(x_coordinates, y);
-            self.render_character(
-                character.to_uppercase().next().unwrap(),
-                frame,
-                gl_coordinates[0],
-                gl_coordinates[1],
-                font_scale,
-                background_color,
-            );
+        // Culling
+        let top_y = self.screen_to_opengl_coordinates(0, y)[1];
+        let bottom_y = self
+            .screen_to_opengl_coordinates(0, y + self.font.as_ref().unwrap().get_glyph_height())[1];
+        if bottom_y > 1.0 || top_y < -1.0 {
+            return;
         }
+
+        let rgba_image = self.font.as_ref().unwrap().render_string(string);
+        let texture = self.rgba_image_to_texture(&rgba_image);
+
+        let size = self.screen_to_relative_coordinates(
+            (rgba_image.width()) as i32,
+            (rgba_image.height()) as i32,
+        );
+
+        let gl_coordinates = self.screen_to_opengl_coordinates(
+            x + (rgba_image.width() as f32 / 2.0) as i32,
+            y + (rgba_image.height() as f32 / 2.0) as i32,
+        );
+        let mat4 = Matrix4::identity()
+            .append_nonuniform_scaling(&Vector3::new(size[0], size[1], 1.0))
+            .append_translation(&Vector3::new(gl_coordinates[0], gl_coordinates[1], 0.0));
+        let compiled_matrix = TryInto::<[[f32; 4]; 4]>::try_into(mat4.data.0).unwrap();
+
+        let bg_color = match background_color {
+            Some(color) => [color.r, color.g, color.b, 1.0],
+            None => [0.0, 0.0, 0.0, 0.0],
+        };
+
+        let uniforms = uniform![
+            transform: compiled_matrix,
+            font_texture: texture,
+            color_addition: Color::Black.to_color(),
+            background_color: bg_color
+        ];
+
+        frame
+            .draw(
+                &self.rect.as_ref().unwrap().vao,
+                &self.rect.as_ref().unwrap().ebo,
+                self.program.as_ref().unwrap(),
+                &uniforms,
+                &DrawParameters {
+                    blend: Blend::alpha_blending(),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
     }
 
-    pub fn render_current_page(&self, frame: &mut Frame) {
+    pub fn render_current_page(&mut self, frame: &mut Frame) {
         let page_layout = self.create_page_layout();
         for paragraph in &page_layout.paragraphs {
             for sentence in &paragraph.sentences {
@@ -346,14 +386,14 @@ impl Window {
                 width: inner_size.width as i32 - 40,
                 height: inner_size.height as i32 - 40,
             },
-            Size::new(Self::FONT_SIZE as i32, Self::FONT_SIZE as i32),
+            self.font.as_ref().unwrap(),
         );
         layout.make_relative_to(Position::new(40, 40));
         layout
     }
 
     pub fn render_character(
-        &self,
+        &mut self,
         character: char,
         frame: &mut Frame,
         x: f32,
@@ -406,7 +446,20 @@ impl Window {
             .unwrap();
     }
 
+    pub fn rgba_image_to_texture(&self, image: &RgbaImage) -> Texture2d {
+        let dimensions = image.dimensions();
+        let raw_image = RawImage2d::from_raw_rgba_reversed(&image.clone().into_raw(), dimensions);
+        Texture2d::new(self.display.as_ref().unwrap(), raw_image).unwrap()
+    }
+
     pub fn load_font(&mut self) {
+        self.font = Some(
+            Font::load(Path::new(
+                "./fonts/liberation-sans/LiberationSans-Regular.ttf",
+            ))
+            .unwrap(),
+        );
+
         let image_data = ImageReader::open("textures/font.png")
             .unwrap()
             .decode()

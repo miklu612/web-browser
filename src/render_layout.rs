@@ -6,6 +6,7 @@
 //! way down until there are no children.
 
 use crate::css::{Color as CssColor, Rule};
+use crate::font::Font;
 use crate::html::{Element, Tag};
 use std::ops::Add;
 
@@ -211,27 +212,27 @@ impl ParagraphDefinition {
 
     /// Returns a compiled version of this paragraph. The output hasn't yet been given a position,
     /// so it will be positioned at 0, 0
-    pub fn compile(self, viewport_size: Size, mut font_size: Size) -> Paragraph {
+    pub fn compile(self, viewport_size: Size, mut font: &Font) -> Paragraph {
+        let seperation_width = 10;
+        let seperation_height = font.get_glyph_height();
         let mut x_position: i32 = 0;
         let mut sentences = Vec::new();
         let mut y_position: i32 = 0;
-        font_size.width = (font_size.width as f32 * self.font_scale) as i32;
-        font_size.height = (font_size.height as f32 * self.font_scale) as i32;
 
         for sentence in &self.sentences {
             let mut words = Vec::new();
             for word in &sentence.words {
-                let mut right_edge = x_position + word.len() as i32 * font_size.width;
+                let mut right_edge = x_position + font.get_word_width(word);
                 if right_edge > viewport_size.width {
-                    y_position += font_size.height;
+                    y_position += seperation_height;
                     x_position = 0;
-                    right_edge = word.len() as i32 * font_size.width;
+                    right_edge = font.get_word_width(word);
                 }
                 words.push(Word::new(
                     word.clone(),
                     Position::new(x_position, y_position),
                 ));
-                x_position = right_edge + font_size.width;
+                x_position = right_edge + seperation_width;
             }
             sentences.push(Sentence {
                 words,
@@ -241,8 +242,8 @@ impl ParagraphDefinition {
 
         Paragraph {
             sentences,
-            height: y_position + font_size.height,
-            font_scale: self.font_scale,
+            height: y_position + seperation_height,
+            font_scale: 1.0,
             background_color: self.background_color,
         }
     }
@@ -261,7 +262,7 @@ impl Layout {
         }
     }
 
-    pub fn from_body(element: &Element, viewport_size: Size, font_size: Size) -> Self {
+    pub fn from_body(element: &Element, viewport_size: Size, font: &Font) -> Self {
         let mut definitions = Vec::new();
 
         for child in &element.children {
@@ -272,13 +273,13 @@ impl Layout {
         let mut paragraphs = Vec::new();
         for definition in definitions {
             for paragraph in definition.children {
-                paragraphs.push(paragraph.compile(viewport_size, font_size));
+                paragraphs.push(paragraph.compile(viewport_size, font));
             }
         }
 
         // Adjust the positions of the paragraphs
         let mut current_y = 0;
-        let spacing = 50;
+        let spacing: i32 = (font.get_glyph_height() as f32 / 2.0) as i32;
         for paragraph in &mut paragraphs {
             paragraph.make_relative_to(Position::new(0, current_y));
             current_y += paragraph.height;
