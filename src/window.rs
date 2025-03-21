@@ -292,18 +292,20 @@ impl Window {
         string: &str,
         x: i32,
         y: i32,
-        font_scale: f32,
+        font_size: f32,
         background_color: Option<LayoutColor>,
     ) {
         // Culling
         let top_y = self.screen_to_opengl_coordinates(0, y)[1];
-        let bottom_y = self
-            .screen_to_opengl_coordinates(0, y + self.font.as_ref().unwrap().get_glyph_height())[1];
+        let bottom_y = self.screen_to_opengl_coordinates(
+            0,
+            y + self.font.as_ref().unwrap().get_glyph_height(font_size),
+        )[1];
         if bottom_y > 1.0 || top_y < -1.0 {
             return;
         }
 
-        let rgba_image = self.font.as_ref().unwrap().render_string(string);
+        let rgba_image = self.font.as_ref().unwrap().render_string(string, font_size);
         let texture = self.rgba_image_to_texture(&rgba_image);
 
         let size = self.screen_to_relative_coordinates(
@@ -356,7 +358,7 @@ impl Window {
                         &word.word,
                         word.position.x,
                         word.position.y + self.scroll_y,
-                        paragraph.font_scale,
+                        paragraph.font_size,
                         paragraph.background_color,
                     );
                 }

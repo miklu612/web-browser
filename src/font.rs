@@ -9,8 +9,6 @@ pub struct Font {
     pub font: FontVec,
 }
 
-const FONT_SCALE: f32 = 40.0;
-
 impl Font {
     pub fn load(path: &Path) -> Result<Self, String> {
         let file = match File::open(path) {
@@ -33,49 +31,44 @@ impl Font {
         })
     }
 
-    pub fn get_glyph_width(&self, character: char) -> i32 {
+    pub fn get_glyph_width(&self, character: char, font_size: f32) -> i32 {
         let glyph = self.font.glyph_id(character);
-        self.font.as_scaled(FONT_SCALE).h_advance(glyph) as i32
+        self.font.as_scaled(font_size).h_advance(glyph) as i32
     }
 
-    pub fn get_glyph_height(&self) -> i32 {
-        self.font.as_scaled(FONT_SCALE).height() as i32
+    pub fn get_glyph_height(&self, font_size: f32) -> i32 {
+        self.font.as_scaled(font_size).height() as i32
     }
 
-    pub fn get_glyph_bounds(&self, character: char) -> Bound<i32> {
-        let font_scaled = self.font.as_scaled(FONT_SCALE);
-        let glyph = self.font.glyph_id(character).with_scale(FONT_SCALE);
-        Bound::<i32>::new(self.get_glyph_width(character), font_scaled.height() as i32)
+    pub fn get_glyph_bounds(&self, character: char, font_size: f32) -> Bound<i32> {
+        let font_scaled = self.font.as_scaled(font_size);
+        let glyph = self.font.glyph_id(character).with_scale(font_size);
+        Bound::<i32>::new(
+            self.get_glyph_width(character, font_size),
+            font_scaled.height() as i32,
+        )
     }
 
-    pub fn get_word_width(&self, word: &str) -> i32 {
+    pub fn get_word_width(&self, word: &str, font_size: f32) -> i32 {
         let mut width = 0;
         for character in word.chars() {
-            width += self.get_glyph_bounds(character).width;
+            width += self.get_glyph_bounds(character, font_size).width;
         }
         width
     }
 
-    pub fn get_word_height(&self, word: &str) -> i32 {
-        let mut height = 0;
-        for character in word.chars() {
-            height = height.max(self.get_glyph_bounds(character).height);
-        }
-        height
-    }
-
-    pub fn render_string(&self, word: &str) -> RgbaImage {
+    pub fn render_string(&self, word: &str, font_size: f32) -> RgbaImage {
         let mut output = RgbaImage::new(
-            self.get_word_width(word) as u32 + 1,
-            self.get_word_height(word) as u32 + 1,
+            self.get_word_width(word, font_size) as u32 + 1,
+            self.get_glyph_height(font_size) as u32 + 1,
         );
 
-        let mut previous_point = point(0.0, self.font.as_scaled(FONT_SCALE).ascent());
+        let mut previous_point = point(0.0, self.font.as_scaled(font_size).ascent());
         for character in word.chars() {
             let glyph = self
                 .font
                 .glyph_id(character)
-                .with_scale_and_position(FONT_SCALE, previous_point);
+                .with_scale_and_position(font_size, previous_point);
             if let Some(outline) = self.font.outline_glyph(glyph) {
                 let bounding_box = outline.px_bounds();
                 outline.draw(|x, y, c| {
@@ -88,7 +81,7 @@ impl Font {
                     }
                 });
             }
-            previous_point.x += self.get_glyph_width(character) as f32;
+            previous_point.x += self.get_glyph_width(character, font_size) as f32;
         }
         output
     }

@@ -39,7 +39,7 @@ fn render_text(text: &str) {
         "./fonts/liberation-sans/LiberationSans-Regular.ttf",
     ))
     .unwrap();
-    let image = font.render_string(text);
+    let image = font.render_string(text, 20.0);
     image.save("output.png").unwrap();
 }
 

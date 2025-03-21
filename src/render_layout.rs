@@ -10,6 +10,9 @@ use crate::font::Font;
 use crate::html::{Element, Tag};
 use std::ops::Add;
 
+const DEFAULT_FONT_SIZE: f32 = 40.0;
+const DEFAULT_H1_SIZE: f32 = DEFAULT_FONT_SIZE * 2.0;
+
 /// A generic position vector implementation
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Position {
@@ -97,7 +100,7 @@ impl Sentence {
 pub struct Paragraph {
     pub sentences: Vec<Sentence>,
     pub height: i32,
-    pub font_scale: f32,
+    pub font_size: f32,
     pub background_color: Option<Color>,
 }
 
@@ -182,7 +185,7 @@ pub struct SentenceDefinition {
 pub struct ParagraphDefinition {
     pub tag: Tag,
     pub sentences: Vec<SentenceDefinition>,
-    pub font_scale: f32,
+    pub font_size: f32,
     pub background_color: Option<Color>,
 }
 
@@ -202,9 +205,9 @@ impl ParagraphDefinition {
                 tag: element.element_type,
                 href: element.get_attribute("href"),
             }],
-            font_scale: match element.element_type {
-                Tag::H(1) => 2.0,
-                _ => 1.0,
+            font_size: match element.element_type {
+                Tag::H(1) => DEFAULT_H1_SIZE,
+                _ => DEFAULT_FONT_SIZE,
             },
             background_color: None,
         }
@@ -214,7 +217,7 @@ impl ParagraphDefinition {
     /// so it will be positioned at 0, 0
     pub fn compile(self, viewport_size: Size, font: &Font) -> Paragraph {
         let seperation_width = 10;
-        let seperation_height = font.get_glyph_height();
+        let seperation_height = font.get_glyph_height(self.font_size);
         let mut x_position: i32 = 0;
         let mut sentences = Vec::new();
         let mut y_position: i32 = 0;
@@ -222,11 +225,11 @@ impl ParagraphDefinition {
         for sentence in &self.sentences {
             let mut words = Vec::new();
             for word in &sentence.words {
-                let mut right_edge = x_position + font.get_word_width(word);
+                let mut right_edge = x_position + font.get_word_width(word, self.font_size);
                 if right_edge > viewport_size.width {
                     y_position += seperation_height;
                     x_position = 0;
-                    right_edge = font.get_word_width(word);
+                    right_edge = font.get_word_width(word, self.font_size);
                 }
                 words.push(Word::new(
                     word.clone(),
@@ -243,7 +246,7 @@ impl ParagraphDefinition {
         Paragraph {
             sentences,
             height: y_position + seperation_height,
-            font_scale: 1.0,
+            font_size: self.font_size,
             background_color: self.background_color,
         }
     }
@@ -279,7 +282,7 @@ impl Layout {
 
         // Adjust the positions of the paragraphs
         let mut current_y = 0;
-        let spacing: i32 = (font.get_glyph_height() as f32 / 2.0) as i32;
+        let spacing: i32 = (font.get_glyph_height(DEFAULT_FONT_SIZE) as f32 / 2.0) as i32;
         for paragraph in &mut paragraphs {
             paragraph.make_relative_to(Position::new(0, current_y));
             current_y += paragraph.height;
