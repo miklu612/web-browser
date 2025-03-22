@@ -1,8 +1,9 @@
 use crate::color::Color;
 use crate::document::Document;
 use crate::font::Font;
-use crate::html::{Element, Tag};
+use crate::html::{parse_html, Element, Tag};
 use crate::render_layout::{Layout, Position, Size};
+use crate::requests::get_site;
 use glium::backend::glutin::glutin;
 use glium::{
     backend::glutin::Display,
@@ -22,11 +23,12 @@ use nalgebra::{Matrix4, Vector3};
 use std::{num::NonZero, path::Path};
 use winit::{
     application::ApplicationHandler,
-    event::{ElementState, KeyEvent, WindowEvent},
+    dpi::PhysicalPosition,
+    event::{ElementState, KeyEvent, MouseButton, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     keyboard::Key,
     raw_window_handle::{HasDisplayHandle, HasWindowHandle},
-    window::{Window as WinitWindow, WindowId},
+    window::{Cursor, CursorIcon, Window as WinitWindow, WindowId},
 };
 
 #[derive(Copy, Clone)]
@@ -96,12 +98,14 @@ impl Rectangle {
 
 pub struct Window {
     window: Option<WinitWindow>,
+    mouse_position: Position,
     display: Option<Display<WindowSurface>>,
     rect: Option<Rectangle>,
     program: Option<Program>,
     document: Option<Document>,
     scroll_y: i32,
     font: Option<Font>,
+    layout: Option<Layout>,
 }
 
 impl ApplicationHandler for Window {
@@ -230,6 +234,19 @@ impl ApplicationHandler for Window {
                 _ => (),
             },
 
+            WindowEvent::CursorMoved {
+                position: PhysicalPosition { x, y },
+                ..
+            } => {
+                self.update_cursor(x as i32, y as i32);
+            }
+
+            WindowEvent::MouseInput { button, state, .. } => {
+                if button == MouseButton::Left && state == ElementState::Pressed {
+                    self.handle_click();
+                }
+            }
+
             _ => (),
         }
     }
@@ -245,6 +262,8 @@ impl Window {
             scroll_y: 0,
             document: None,
             font: None,
+            layout: None,
+            mouse_position: Position::new(0, 0),
         }
     }
 
@@ -257,6 +276,56 @@ impl Window {
         ]
     }
 
+    pub fn update_cursor(&mut self, x: i32, y: i32) {
+        self.mouse_position.x = x;
+        self.mouse_position.y = y;
+        if let Some(layout) = self.layout.as_ref() {
+            let mut cursor_mode = CursorIcon::Default;
+            for paragraph in &layout.paragraphs {
+                for sentence in &paragraph.sentences {
+                    if sentence.href.is_some() {
+                        if sentence.is_position_inside(x, y - self.scroll_y) {
+                            cursor_mode = CursorIcon::Pointer;
+                            break;
+                        }
+                    }
+                }
+            }
+            self.window
+                .as_ref()
+                .unwrap()
+                .set_cursor(Cursor::Icon(cursor_mode));
+        }
+    }
+
+    pub fn handle_click(&mut self) {
+        if let Some(layout) = self.layout.as_ref() {
+            let x = self.mouse_position.x;
+            let y = self.mouse_position.y;
+            let mut cursor_mode = CursorIcon::Default;
+            let mut new_elements = None;
+            for paragraph in &layout.paragraphs {
+                for sentence in &paragraph.sentences {
+                    if sentence.href.is_some() {
+                        if sentence.is_position_inside(x, y - self.scroll_y) {
+                            println!("Getting {:?}", sentence.href);
+                            new_elements =
+                                Some(parse_html(&get_site(&sentence.href.as_ref().unwrap())));
+                            println!("Content received!");
+                        }
+                    }
+                }
+            }
+            if let Some(elements) = new_elements.take() {
+                self.set_elements(elements);
+            }
+            self.window
+                .as_ref()
+                .unwrap()
+                .set_cursor(Cursor::Icon(cursor_mode));
+        }
+    }
+
     /// Transforms screen coordinates into a 0.0 - 1.0 scale
     pub fn screen_to_relative_coordinates(&self, x: i32, y: i32) -> [f32; 2] {
         let inner_size = self.window.as_ref().unwrap().inner_size();
@@ -266,9 +335,13 @@ impl Window {
         ]
     }
 
-    pub fn render(&mut self, elements: Vec<Element>) {
+    pub fn set_elements(&mut self, elements: Vec<Element>) {
         self.document = Some(Document::new(elements, Vec::new()));
         self.document.as_mut().unwrap().parse_inline_css();
+    }
+
+    pub fn render(&mut self, elements: Vec<Element>) {
+        self.set_elements(elements);
         self.open();
     }
 
@@ -338,9 +411,9 @@ impl Window {
             .unwrap();
     }
 
-    pub fn render_current_page(&self, frame: &mut Frame) {
-        let page_layout = self.create_page_layout();
-        for paragraph in &page_layout.paragraphs {
+    pub fn render_current_page(&mut self, frame: &mut Frame) {
+        self.update_page_layout();
+        for paragraph in &self.layout.as_ref().unwrap().paragraphs {
             for sentence in &paragraph.sentences {
                 let color = match sentence.text_color {
                     Some(v) => v,
@@ -361,7 +434,7 @@ impl Window {
         }
     }
 
-    pub fn create_page_layout(&self) -> Layout {
+    pub fn update_page_layout(&mut self) {
         let mut body = None;
         for element in &self.document.as_ref().unwrap().elements[0].children {
             if element.element_type == Tag::Body {
@@ -380,7 +453,7 @@ impl Window {
             self.font.as_ref().unwrap(),
         );
         layout.make_relative_to(Position::new(40, 40));
-        layout
+        self.layout = Some(layout);
     }
 
     pub fn rgba_image_to_texture(&self, image: &RgbaImage) -> Texture2d {

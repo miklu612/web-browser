@@ -275,6 +275,9 @@ fn parse_html_element(iter: &mut Peekable<Chars>) -> Element {
         || tag == "br"
         || tag == "hr"
     {
+        if iter.peek() == Some(&'/') {
+            iter.next();
+        }
         assert_eq!(iter.next(), Some('>'));
         let mut element = Element::new(Tag::from_string(&tag).unwrap());
         element.attributes = attributes;

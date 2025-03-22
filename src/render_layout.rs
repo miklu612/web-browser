@@ -59,17 +59,39 @@ impl Size {
 pub struct Word {
     pub word: String,
     pub position: Position,
+    pub width: i32,
+    pub height: i32,
 }
 
 impl Word {
-    pub fn new(word: String, position: Position) -> Self {
-        Self { word, position }
+    pub fn new(word: String, position: Position, width: i32, height: i32) -> Self {
+        Self {
+            word,
+            position,
+            width,
+            height,
+        }
     }
 }
 
 impl Word {
     pub fn make_relative_to(&mut self, position: Position) {
         self.position = self.position + position;
+    }
+
+    /// Checks if a given position is inside of this word
+    pub fn is_position_inside(&self, x: i32, y: i32) -> bool {
+        if x < self.position.x {
+            false
+        } else if y < self.position.y {
+            false
+        } else if x > self.position.x + self.width {
+            false
+        } else if y > self.position.y + self.height {
+            false
+        } else {
+            true
+        }
     }
 }
 
@@ -87,6 +109,16 @@ impl Sentence {
         for word in &mut self.words {
             word.make_relative_to(position);
         }
+    }
+
+    /// Checks if a given position is inside a word of this sentence
+    pub fn is_position_inside(&self, x: i32, y: i32) -> bool {
+        for word in &self.words {
+            if word.is_position_inside(x, y) {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -227,7 +259,9 @@ impl ParagraphDefinition {
         for sentence in &self.sentences {
             let mut words = Vec::new();
             for word in &sentence.words {
-                let mut right_edge = x_position + font.get_word_width(word, self.font_size);
+                let word_width = font.get_word_width(word, self.font_size);
+                let word_height = font.get_glyph_height(self.font_size);
+                let mut right_edge = x_position + word_width;
                 if right_edge > viewport_size.width {
                     y_position += seperation_height;
                     x_position = 0;
@@ -236,6 +270,8 @@ impl ParagraphDefinition {
                 words.push(Word::new(
                     word.clone(),
                     Position::new(x_position, y_position),
+                    word_width,
+                    word_height,
                 ));
                 x_position = right_edge + seperation_width;
             }
