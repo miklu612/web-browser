@@ -283,11 +283,10 @@ impl Window {
             let mut cursor_mode = CursorIcon::Default;
             for paragraph in &layout.paragraphs {
                 for sentence in &paragraph.sentences {
-                    if sentence.href.is_some() {
-                        if sentence.is_position_inside(x, y - self.scroll_y) {
-                            cursor_mode = CursorIcon::Pointer;
-                            break;
-                        }
+                    if sentence.href.is_some() && sentence.is_position_inside(x, y - self.scroll_y)
+                    {
+                        cursor_mode = CursorIcon::Pointer;
+                        break;
                     }
                 }
             }
@@ -302,27 +301,20 @@ impl Window {
         if let Some(layout) = self.layout.as_ref() {
             let x = self.mouse_position.x;
             let y = self.mouse_position.y;
-            let mut cursor_mode = CursorIcon::Default;
             let mut new_elements = None;
             for paragraph in &layout.paragraphs {
                 for sentence in &paragraph.sentences {
-                    if sentence.href.is_some() {
-                        if sentence.is_position_inside(x, y - self.scroll_y) {
-                            println!("Getting {:?}", sentence.href);
-                            new_elements =
-                                Some(parse_html(&get_site(&sentence.href.as_ref().unwrap())));
-                            println!("Content received!");
-                        }
+                    if sentence.href.is_some() && sentence.is_position_inside(x, y - self.scroll_y)
+                    {
+                        println!("Getting {:?}", sentence.href);
+                        new_elements = Some(parse_html(&get_site(sentence.href.as_ref().unwrap())));
+                        println!("Content received!");
                     }
                 }
             }
             if let Some(elements) = new_elements.take() {
                 self.set_elements(elements);
             }
-            self.window
-                .as_ref()
-                .unwrap()
-                .set_cursor(Cursor::Icon(cursor_mode));
         }
     }
 

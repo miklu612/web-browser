@@ -1,9 +1,8 @@
 use crate::bound::Bound;
 use crate::color::Color;
 use ab_glyph::{point, Font as AbFont, FontVec, ScaleFont};
-use glium::Texture2d;
 use image::{Rgba, RgbaImage};
-use std::{collections::HashMap, fs::File, io::Read, path::Path};
+use std::{fs::File, io::Read, path::Path};
 
 pub struct Font {
     font: FontVec,

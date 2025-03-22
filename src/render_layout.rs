@@ -81,17 +81,10 @@ impl Word {
 
     /// Checks if a given position is inside of this word
     pub fn is_position_inside(&self, x: i32, y: i32) -> bool {
-        if x < self.position.x {
-            false
-        } else if y < self.position.y {
-            false
-        } else if x > self.position.x + self.width {
-            false
-        } else if y > self.position.y + self.height {
-            false
-        } else {
-            true
-        }
+        !(x < self.position.x
+            || y < self.position.y
+            || x > self.position.x + self.width
+            || y > self.position.y + self.height)
     }
 }
 
