@@ -32,33 +32,40 @@ pub enum Color {
 
 /// This contains all of the different values for border and such. For example
 /// `border: 20px solid`
+#[derive(Debug)]
 pub enum BorderStyle {
     Solid,
 }
 
+#[derive(Debug)]
 pub enum DisplayStyle {
     Block,
     None,
     Flex,
 }
 
+#[derive(Debug)]
 pub enum Direction {
     Right,
     Left,
 }
 
+#[derive(Debug)]
 pub enum FontStyle {
     Italic,
 }
 
+#[derive(Debug)]
 pub enum FontWeight {
     Normal,
 }
 
+#[derive(Debug)]
 pub enum WhiteSpace {
     NoWrap,
 }
 
+#[derive(Debug)]
 pub enum Position {
     Absolute,
 }
@@ -66,6 +73,7 @@ pub enum Position {
 /// This won't be used in the final product, but it will be used to contain a variable value to
 /// return in function calls. It will be up to the function implementation to validate that this
 /// value contains the correct value.
+#[derive(Debug)]
 pub enum Value {
     Unit(Unit),
     Color(Color),
@@ -156,6 +164,7 @@ pub enum Rule {
     Width(Unit),
     MarginLeft(Unit),
     BackgroundColor(Color),
+    FontSize(Unit),
 }
 
 impl Rule {
@@ -174,6 +183,11 @@ impl Rule {
             "background-color" => match value.first().unwrap() {
                 Value::Color(color) => Some(Self::BackgroundColor(*color)),
                 _ => panic!("Expected a color"),
+            },
+
+            "font-size" => match value.first().unwrap() {
+                Value::Unit(v) => Some(Self::FontSize(*v)),
+                v => panic!("Expected unit. Got '{:?}'", v),
             },
 
             _ => {
