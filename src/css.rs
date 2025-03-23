@@ -139,7 +139,7 @@ impl Value {
             return Value::Inherit;
         } else if css_value == "absolute" {
             return Value::Position(Position::Absolute);
-        } else if css_value.chars().next() == Some('#') {
+        } else if css_value.starts_with('#') {
             println!("Hex colors aren't implemented yet!");
             return Value::Color(Color::Black);
         } else if css_value.chars().all(|x| x.is_numeric()) {

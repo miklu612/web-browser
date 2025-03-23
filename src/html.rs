@@ -395,7 +395,7 @@ fn remove_comments(code: &str) -> String {
     loop {
         match iter.next() {
             Some('<') => {
-                if iter.clone().nth(0) == Some('!')
+                if iter.clone().next() == Some('!')
                     && iter.clone().nth(1) == Some('-')
                     && iter.clone().nth(2) == Some('-')
                 {
