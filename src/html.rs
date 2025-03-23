@@ -10,6 +10,7 @@ pub enum Tag {
     Html,
     Paragraph,
     Button,
+    Source,
     Fieldset,
     Title,
     Small,
@@ -18,6 +19,7 @@ pub enum Tag {
     Link,
     Head,
     Span,
+    Cite,
     Center,
     Main,
     Input,
@@ -30,18 +32,34 @@ pub enum Tag {
     Style,
     Label,
     Option,
+    Tbody,
+    Caption,
     Form,
+    Abbr,
+    Map,
+    Figcaption,
+    Figure,
     Img,
+    Sup,
     Nav,
+    Dfn,
     Li,
     Td,
+    Th,
     Ul,
     Br,
     Hr,
     Tr,
+    Dt,
+    Dd,
+    Dl,
+    Ol,
     A,
     B,
     U,
+    Noscript,
+    Picture,
+    Q,
     I,
 }
 
@@ -50,15 +68,35 @@ impl Tag {
         match tag {
             "h1" => Ok(Tag::H(1)),
             "h2" => Ok(Tag::H(2)),
+            "h3" => Ok(Tag::H(3)),
+            "h4" => Ok(Tag::H(4)),
+            "ol" => Ok(Tag::Ol),
             "div" => Ok(Tag::Div),
+            "dfn" => Ok(Tag::Dfn),
+            "dt" => Ok(Tag::Dt),
+            "cite" => Ok(Tag::Cite),
+            "dl" => Ok(Tag::Dl),
+            "q" => Ok(Tag::Q),
+            "dd" => Ok(Tag::Dd),
+            "caption" => Ok(Tag::Caption),
+            "picture" => Ok(Tag::Picture),
+            "noscript" => Ok(Tag::Noscript),
+            "source" => Ok(Tag::Source),
+            "map" => Ok(Tag::Map),
             "body" => Ok(Tag::Body),
+            "th" => Ok(Tag::Th),
+            "tbody" => Ok(Tag::Tbody),
             "main" => Ok(Tag::Main),
             "html" => Ok(Tag::Html),
             "footer" => Ok(Tag::Footer),
             "small" => Ok(Tag::Small),
             "label" => Ok(Tag::Label),
             "fieldset" => Ok(Tag::Fieldset),
+            "figure" => Ok(Tag::Figure),
+            "figcaption" => Ok(Tag::Figcaption),
             "bdi" => Ok(Tag::Bdi),
+            "sup" => Ok(Tag::Sup),
+            "abbr" => Ok(Tag::Abbr),
             "p" => Ok(Tag::Paragraph),
             "i" => Ok(Tag::I),
             "title" => Ok(Tag::Title),
@@ -274,6 +312,7 @@ fn parse_html_element(iter: &mut Peekable<Chars>) -> Element {
         || tag == "input"
         || tag == "br"
         || tag == "hr"
+        || tag == "source"
     {
         if iter.peek() == Some(&'/') {
             iter.next();
@@ -349,6 +388,45 @@ fn parse_html_iter(iter: &mut Peekable<Chars>) -> Vec<Element> {
     elements
 }
 
+fn remove_comments(code: &str) -> String {
+    let mut output = String::new();
+    let mut iter = code.chars().peekable();
+
+    loop {
+        match iter.next() {
+            Some('<') => {
+                if iter.clone().nth(0) == Some('!')
+                    && iter.clone().nth(1) == Some('-')
+                    && iter.clone().nth(2) == Some('-')
+                {
+                    while let Some(v) = iter.peek() {
+                        if *v == '-' {
+                            if iter.next() == Some('-')
+                                && iter.next() == Some('-')
+                                && iter.next() == Some('>')
+                            {
+                                break;
+                            }
+                        } else {
+                            iter.next();
+                        }
+                    }
+                } else {
+                    output.push('<');
+                }
+            }
+
+            Some(v) => output.push(v),
+
+            None => break,
+        }
+    }
+
+    output
+}
+
 pub fn parse_html(html: &str) -> Vec<Element> {
-    parse_html_iter(&mut html.chars().peekable())
+    let code = remove_comments(html);
+    println!("{}", code);
+    parse_html_iter(&mut code.chars().peekable())
 }
