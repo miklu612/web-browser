@@ -17,6 +17,8 @@ use std::{iter::Peekable, str::Chars};
 pub enum Unit {
     Px(i32),
     Pt(i32),
+    Em(f32),
+    Percentage(i32),
 }
 
 /// This contains all of the different colours that css supports.
@@ -24,6 +26,8 @@ pub enum Unit {
 pub enum Color {
     Hex(u8, u8, u8),
     White,
+    Black,
+    Transparent,
 }
 
 /// This contains all of the different values for border and such. For example
@@ -34,10 +38,29 @@ pub enum BorderStyle {
 
 pub enum DisplayStyle {
     Block,
+    None,
+    Flex,
 }
 
 pub enum Direction {
     Right,
+    Left,
+}
+
+pub enum FontStyle {
+    Italic,
+}
+
+pub enum FontWeight {
+    Normal,
+}
+
+pub enum WhiteSpace {
+    NoWrap,
+}
+
+pub enum Position {
+    Absolute,
 }
 
 /// This won't be used in the final product, but it will be used to contain a variable value to
@@ -49,6 +72,12 @@ pub enum Value {
     BorderStyle(BorderStyle),
     DisplayStyle(DisplayStyle),
     Direction(Direction),
+    FontStyle(FontStyle),
+    WhiteSpace(WhiteSpace),
+    FontWeight(FontWeight),
+    Number(i32),
+    Position(Position),
+    Inherit,
 }
 
 impl Value {
@@ -66,14 +95,47 @@ impl Value {
             if without_pt_suffix.chars().all(|x| x.is_numeric()) {
                 return Value::Unit(Unit::Pt(without_pt_suffix.parse().unwrap()));
             }
+        } else if css_value.ends_with("em") {
+            let without_em_suffix = css_value.strip_suffix("em").unwrap();
+            if let Ok(v) = without_em_suffix.parse::<f32>() {
+                return Value::Unit(Unit::Em(v));
+            }
+        } else if css_value.ends_with("%") {
+            let without_percentage = css_value.strip_suffix("%").unwrap();
+            if let Ok(v) = without_percentage.parse::<i32>() {
+                return Value::Unit(Unit::Percentage(v));
+            }
         } else if css_value == "white" {
             return Value::Color(Color::White);
         } else if css_value == "solid" {
             return Value::BorderStyle(BorderStyle::Solid);
+        } else if css_value == "transparent" {
+            return Value::Color(Color::Transparent);
         } else if css_value == "block" {
             return Value::DisplayStyle(DisplayStyle::Block);
         } else if css_value == "right" {
             return Value::Direction(Direction::Right);
+        } else if css_value == "left" {
+            return Value::Direction(Direction::Left);
+        } else if css_value == "none" {
+            return Value::DisplayStyle(DisplayStyle::None);
+        } else if css_value == "italic" {
+            return Value::FontStyle(FontStyle::Italic);
+        } else if css_value == "nowrap" {
+            return Value::WhiteSpace(WhiteSpace::NoWrap);
+        } else if css_value == "normal" {
+            return Value::FontWeight(FontWeight::Normal);
+        } else if css_value == "flex" {
+            return Value::DisplayStyle(DisplayStyle::Flex);
+        } else if css_value == "inherit" {
+            return Value::Inherit;
+        } else if css_value == "absolute" {
+            return Value::Position(Position::Absolute);
+        } else if css_value.chars().next() == Some('#') {
+            println!("Hex colors aren't implemented yet!");
+            return Value::Color(Color::Black);
+        } else if css_value.chars().all(|x| x.is_numeric()) {
+            return Value::Number(css_value.parse::<i32>().unwrap());
         }
 
         panic!("Couldn't convert '{}' into a css value", css_value);
@@ -277,9 +339,10 @@ pub fn collect_hex_color(iterator: &mut Peekable<Chars>) -> Color {
 /// will return in the `;` character's position
 pub fn parse_css_value(iterator: &mut Peekable<Chars>) -> Vec<Value> {
     let mut output = Vec::new();
+    let a = iterator.clone();
     loop {
         match iterator.peek() {
-            Some(v) if v.is_alphabetic() || v.is_numeric() => loop {
+            Some(v) if v.is_alphabetic() || v.is_numeric() || *v == '.' => loop {
                 let value = collect_until_terminator(iterator, &[';', ' ']);
                 output.push(Value::from_string(&value));
                 match iterator.peek() {
@@ -288,6 +351,7 @@ pub fn parse_css_value(iterator: &mut Peekable<Chars>) -> Vec<Value> {
                     _ => panic!("Invalid state"),
                 }
             },
+
             Some(';') => break,
 
             Some('#') => {
@@ -295,7 +359,7 @@ pub fn parse_css_value(iterator: &mut Peekable<Chars>) -> Vec<Value> {
                 output.push(Value::Color(color));
             }
 
-            Some(v) => panic!("Invalid state '{}'", v),
+            Some(v) => panic!("Invalid state '{}'\n{:?}", v, a),
 
             None => panic!("Expected more values"),
         }
