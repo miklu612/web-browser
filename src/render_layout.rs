@@ -55,7 +55,7 @@ impl Size {
 }
 
 /// A container for individual words.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Word {
     pub word: String,
     pub position: Position,
@@ -90,7 +90,7 @@ impl Word {
 
 /// A container for multiple words. Not a single sentence as the name would imply. These are needed
 /// to apply different styles and functionality to different sections in a single paragraph
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Sentence {
     pub words: Vec<Word>,
     pub href: Option<String>,
@@ -116,7 +116,7 @@ impl Sentence {
 }
 
 /// A container for multiple sentences.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Paragraph {
     pub sentences: Vec<Sentence>,
     pub height: i32,
@@ -130,13 +130,57 @@ impl Paragraph {
             sentence.make_relative_to(position);
         }
     }
+
+    pub fn combine_sentences(&mut self, paragraph: Paragraph) {
+        self.sentences.extend(paragraph.sentences);
+    }
+}
+
+#[derive(Debug, Clone)]
+enum Definition {
+    Paragraph(ParagraphDefinition),
+    Table(TableDefinition),
 }
 
 /// A definition of an element rect that has not been created yet. This is a part of the
 /// preprocessing step and will be turned into a rect later on.
+#[derive(Debug)]
 pub struct ElementDefinition {
     pub tag: Tag,
-    pub children: Vec<ParagraphDefinition>,
+    pub children: Vec<Definition>,
+}
+
+/// Connects the paragraphs of these elements. Returns the remainder elements of child if there is
+/// any.
+pub fn connect_paragraphs(
+    parent: &mut ElementDefinition,
+    mut child: ElementDefinition,
+) -> Option<ElementDefinition> {
+    match parent.children.last_mut() {
+        Some(Definition::Paragraph(parent_paragraph)) => {
+            let mut iter = child.children.iter().peekable();
+            loop {
+                match iter.peek() {
+                    Some(Definition::Paragraph(paragraph)) => {
+                        iter.next();
+                        parent_paragraph
+                            .sentences
+                            .extend(paragraph.sentences.clone());
+                    }
+                    None => break,
+                    _ => todo!(),
+                }
+            }
+            child.children = iter.map(|x| x.clone()).collect();
+            if child.children.len() == 0 {
+                None
+            } else {
+                Some(child)
+            }
+        }
+
+        _ => Some(child),
+    }
 }
 
 /// Collects the different element definitions from the element
@@ -169,23 +213,25 @@ pub fn collect_definition(element: &Element) -> ElementDefinition {
         if child.element_type == Tag::PlainText {
             let mut paragraph = ParagraphDefinition::from_string(element, &child.inner_text);
             paragraph.background_color = background_color;
-            definition.children.push(paragraph);
+            definition.children.push(Definition::Paragraph(paragraph));
             allow_paragraph_connecting = true;
         } else if child.element_type == Tag::Span || child.element_type == Tag::A {
             let child_definition = collect_definition(child);
             if allow_paragraph_connecting {
-                for child_paragraph in child_definition.children {
-                    if let Some(last) = definition.children.last_mut() {
-                        last.sentences.extend(child_paragraph.sentences.clone());
-                    } else {
-                        definition.children.push(child_paragraph);
-                    }
+                if let Some(remaining_children) =
+                    connect_paragraphs(&mut definition, child_definition)
+                {
+                    definition.children.extend(remaining_children.children);
                 }
             } else {
                 let child_definition = collect_definition(child);
                 definition.children.extend(child_definition.children);
             }
             allow_paragraph_connecting = true;
+        } else if child.element_type == Tag::Table {
+            println!("TABLE");
+            let table = TableDefinition::from_element(&child).unwrap();
+            definition.children.push(Definition::Table(table));
         } else {
             let child_definition = collect_definition(child);
             definition.children.extend(child_definition.children);
@@ -195,7 +241,7 @@ pub fn collect_definition(element: &Element) -> ElementDefinition {
     definition
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SentenceDefinition {
     pub tag: Tag,
     pub words: Vec<String>,
@@ -203,7 +249,18 @@ pub struct SentenceDefinition {
     pub text_color: Option<Color>,
 }
 
+impl SentenceDefinition {
+    pub fn as_string(&self) -> String {
+        let mut sentence = String::new();
+        for word in &self.words {
+            sentence += word;
+        }
+        sentence
+    }
+}
+
 /// A collection of elements that should be drawn inline
+#[derive(Debug, Clone)]
 pub struct ParagraphDefinition {
     pub tag: Tag,
     pub sentences: Vec<SentenceDefinition>,
@@ -240,9 +297,18 @@ impl ParagraphDefinition {
         }
     }
 
+    /// Returns the width of this paragraph if all of the sentences were to be placed inline
+    pub fn get_width(&self, font: &Font) -> i32 {
+        let mut length = 0;
+        for sentence in &self.sentences {
+            length += font.get_word_width(&sentence.as_string(), DEFAULT_FONT_SIZE * 2.0);
+        }
+        length
+    }
+
     /// Returns a compiled version of this paragraph. The output hasn't yet been given a position,
     /// so it will be positioned at 0, 0
-    pub fn compile(self, viewport_size: Size, font: &Font) -> Paragraph {
+    pub fn compile(&self, viewport_size: Size, font: &Font) -> Paragraph {
         let seperation_width = 10;
         let seperation_height = font.get_glyph_height(self.font_size);
         let mut x_position: i32 = 0;
@@ -284,6 +350,114 @@ impl ParagraphDefinition {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct TableRowDefinition {
+    values: Vec<ParagraphDefinition>,
+}
+
+impl TableRowDefinition {
+    pub fn from_element(element: &Element) -> Result<Self, String> {
+        if element.element_type != Tag::Tr {
+            return Err("Expected tag 'tr'".to_string());
+        }
+
+        let mut values = Vec::new();
+        for child in &element.children {
+            if child.element_type != Tag::Td {
+                return Err("Expected tag 'td'".to_string());
+            }
+            let definition = collect_definition(child);
+            assert!(
+                definition.children.len() == 1,
+                "Only one value inside of tables are supported for now"
+            );
+            match definition.children.first().unwrap() {
+                Definition::Paragraph(v) => values.push(v.clone()),
+
+                _ => {
+                    return Err(
+                        "Trying to render a non-paragraph element inside a table".to_string()
+                    )
+                }
+            }
+        }
+
+        Ok(Self { values })
+    }
+}
+
+/// Stores information needed to create a table. This needs to be a unique struct due to the table
+/// element's unique formatting rules.
+#[derive(Debug, Clone)]
+pub struct TableDefinition {
+    rows: Vec<TableRowDefinition>,
+}
+
+pub struct Table {
+    paragraphs: Vec<Paragraph>,
+}
+
+impl Table {
+    pub fn new() -> Self {
+        Self {
+            paragraphs: Vec::new(),
+        }
+    }
+}
+
+impl TableDefinition {
+    pub fn from_element(element: &Element) -> Result<Self, String> {
+        if element.element_type != Tag::Table {
+            return Err(format!("Expected table. Got: '{:?}'", element.element_type));
+        }
+
+        let mut rows = Vec::new();
+        for child in &element.children {
+            let row = TableRowDefinition::from_element(child).unwrap();
+            rows.push(row);
+        }
+        Ok(Self { rows })
+    }
+
+    /// Compile this table into a rendeable [Table]
+    pub fn compile(&self, viewport_size: Size, font: &Font) -> Table {
+        println!("Compiling {} table values", self.rows.len());
+
+        // Calculate the column widths so the elements can be placed correctly
+        let mut max_column_widths = Vec::new();
+        for row in &self.rows {
+            for (index, sentence) in row.values.iter().enumerate() {
+                let sentence_length = sentence.get_width(font);
+                if let Some(v) = max_column_widths.get_mut(index) {
+                    *v = sentence_length;
+                } else {
+                    max_column_widths.push(sentence_length);
+                }
+            }
+        }
+
+        // Compile into paragraphs
+        let mut output = Table::new();
+        let mut y = 0;
+        for row in &self.rows {
+            for (column_index, column) in row.values.iter().enumerate() {
+                // Get the x position for this column element
+                let mut x_position = 0;
+                for i in 0..column_index {
+                    x_position += max_column_widths[i];
+                }
+
+                let mut paragraph = column.compile(Size::new(2000, 2000), font);
+                paragraph.make_relative_to(Position::new(x_position, y));
+                output.paragraphs.push(paragraph);
+            }
+            y += DEFAULT_FONT_SIZE as i32;
+        }
+
+        output
+    }
+}
+
 /// Holds the layout of the html
 #[derive(Debug)]
 pub struct Layout {
@@ -307,8 +481,23 @@ impl Layout {
         // Collect the paragraphs
         let mut paragraphs = Vec::new();
         for definition in definitions {
-            for paragraph in definition.children {
-                paragraphs.push(paragraph.compile(viewport_size, font));
+            for child_definition in definition.children {
+                match child_definition {
+                    Definition::Paragraph(paragraph) => {
+                        paragraphs.push(paragraph.compile(viewport_size, font))
+                    }
+
+                    Definition::Table(table) => {
+                        let table_values = table.compile(viewport_size, font);
+                        let mut paragraph = table_values.paragraphs.first().unwrap().clone();
+                        for i in 1..table_values.paragraphs.len() {
+                            paragraph.combine_sentences(table_values.paragraphs[i].clone());
+                        }
+                        paragraphs.push(paragraph);
+                    }
+
+                    v => panic!("Not Implemented For '{:?}'", v),
+                }
             }
         }
 
