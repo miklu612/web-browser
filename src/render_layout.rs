@@ -171,8 +171,8 @@ pub fn connect_paragraphs(
                     _ => todo!(),
                 }
             }
-            child.children = iter.map(|x| x.clone()).collect();
-            if child.children.len() == 0 {
+            child.children = iter.cloned().collect();
+            if child.children.is_empty() {
                 None
             } else {
                 Some(child)
@@ -230,7 +230,7 @@ pub fn collect_definition(element: &Element) -> ElementDefinition {
             allow_paragraph_connecting = true;
         } else if child.element_type == Tag::Table {
             println!("TABLE");
-            let table = TableDefinition::from_element(&child).unwrap();
+            let table = TableDefinition::from_element(child).unwrap();
             definition.children.push(Definition::Table(table));
         } else {
             let child_definition = collect_definition(child);
