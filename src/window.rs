@@ -231,6 +231,12 @@ impl ApplicationHandler for Window {
             } => match key.as_ref() {
                 Key::Character("j") => self.scroll_y -= 10,
                 Key::Character("k") => self.scroll_y += 10,
+                Key::Character("d") => {
+                    self.scroll_y += self.window.as_ref().unwrap().inner_size().height as i32
+                }
+                Key::Character("u") => {
+                    self.scroll_y -= self.window.as_ref().unwrap().inner_size().height as i32
+                }
                 _ => (),
             },
 
