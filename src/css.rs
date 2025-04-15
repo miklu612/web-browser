@@ -26,6 +26,8 @@ pub enum Unit {
 pub enum Color {
     Hex(u8, u8, u8),
     White,
+    Gray,
+    Lightgray,
     Black,
     Transparent,
 }
@@ -115,6 +117,10 @@ impl Value {
             }
         } else if css_value == "white" {
             return Value::Color(Color::White);
+        } else if css_value == "gray" {
+            return Value::Color(Color::Gray);
+        } else if css_value == "lightgray" {
+            return Value::Color(Color::Lightgray);
         } else if css_value == "solid" {
             return Value::BorderStyle(BorderStyle::Solid);
         } else if css_value == "transparent" {
