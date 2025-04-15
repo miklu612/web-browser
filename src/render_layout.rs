@@ -229,7 +229,6 @@ pub fn collect_definition(element: &Element) -> ElementDefinition {
             }
             allow_paragraph_connecting = true;
         } else if child.element_type == Tag::Table {
-            println!("TABLE");
             let table = TableDefinition::from_element(child).unwrap();
             definition.children.push(Definition::Table(table));
         } else {
@@ -357,27 +356,28 @@ pub struct TableRowDefinition {
 
 impl TableRowDefinition {
     pub fn from_element(element: &Element) -> Result<Self, String> {
-        if element.element_type != Tag::Tr {
-            return Err("Expected tag 'tr'".to_string());
-        }
-
         let mut values = Vec::new();
         for child in &element.children {
-            if child.element_type != Tag::Td {
-                return Err("Expected tag 'td'".to_string());
-            }
             let definition = collect_definition(child);
-            assert!(
-                definition.children.len() == 1,
-                "Only one value inside of tables are supported for now"
-            );
-            match definition.children.first().unwrap() {
-                Definition::Paragraph(v) => values.push(v.clone()),
+            for def in definition.children {
+                match def {
+                    Definition::Paragraph(v) => values.push(v.clone()),
 
-                _ => {
-                    return Err(
-                        "Trying to render a non-paragraph element inside a table".to_string()
-                    )
+                    Definition::Table(v) => {
+                        let paragraphs_vectors: Vec<Vec<ParagraphDefinition>> =
+                            v.rows.iter().map(|x| x.values.clone()).collect();
+                        let mut paragraphs = Vec::new();
+                        for paragraph_vector in paragraphs_vectors {
+                            paragraphs.extend(paragraph_vector);
+                        }
+                        values.extend(paragraphs);
+                    }
+
+                    _ => {
+                        return Err(
+                            "Trying to render a non-paragraph element inside a table".to_string()
+                        )
+                    }
                 }
             }
         }
@@ -421,8 +421,6 @@ impl TableDefinition {
 
     /// Compile this table into a rendeable [Table]
     pub fn compile(&self, viewport_size: Size, font: &Font) -> Table {
-        println!("Compiling {} table values", self.rows.len());
-
         // Calculate the column widths so the elements can be placed correctly
         let mut max_column_widths = Vec::new();
         for row in &self.rows {
