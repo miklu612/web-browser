@@ -9,6 +9,7 @@ pub enum Tag {
     Body,
     Html,
     Paragraph,
+    Article,
     Button,
     Source,
     Fieldset,
@@ -17,6 +18,7 @@ pub enum Tag {
     Audio,
     Small,
     Select,
+    Aside,
     Meta,
     Link,
     Head,
@@ -36,6 +38,7 @@ pub enum Tag {
     Option,
     Tbody,
     Caption,
+    Section,
     Form,
     Abbr,
     Map,
@@ -43,7 +46,9 @@ pub enum Tag {
     Figure,
     Img,
     Sup,
+    Svg,
     Nav,
+    Use,
     Dfn,
     Wbr,
     Li,
@@ -57,6 +62,7 @@ pub enum Tag {
     Dd,
     Dl,
     Ol,
+    Em,
     A,
     B,
     U,
@@ -73,6 +79,9 @@ impl Tag {
             "h2" => Ok(Tag::H(2)),
             "h3" => Ok(Tag::H(3)),
             "h4" => Ok(Tag::H(4)),
+            "h5" => Ok(Tag::H(5)),
+            "h6" => Ok(Tag::H(6)),
+            "em" => Ok(Tag::Em),
             "ol" => Ok(Tag::Ol),
             "div" => Ok(Tag::Div),
             "dfn" => Ok(Tag::Dfn),
@@ -92,9 +101,12 @@ impl Tag {
             "main" => Ok(Tag::Main),
             "html" => Ok(Tag::Html),
             "footer" => Ok(Tag::Footer),
+            "section" => Ok(Tag::Section),
             "small" => Ok(Tag::Small),
             "label" => Ok(Tag::Label),
             "fieldset" => Ok(Tag::Fieldset),
+            "article" => Ok(Tag::Article),
+            "aside" => Ok(Tag::Aside),
             "figure" => Ok(Tag::Figure),
             "audio" => Ok(Tag::Audio),
             "figcaption" => Ok(Tag::Figcaption),
@@ -107,9 +119,11 @@ impl Tag {
             "option" => Ok(Tag::Option),
             "select" => Ok(Tag::Select),
             "nav" => Ok(Tag::Nav),
+            "svg" => Ok(Tag::Svg),
             "style" => Ok(Tag::Style),
             "header" => Ok(Tag::Header),
             "track" => Ok(Tag::Track),
+            "use" => Ok(Tag::Use),
             "button" => Ok(Tag::Button),
             "meta" => Ok(Tag::Meta),
             "head" => Ok(Tag::Head),
@@ -286,14 +300,55 @@ fn parse_attributes(iter: &mut Peekable<Chars>) -> HashMap<String, String> {
             Some(v) if v.is_whitespace() => {
                 iter.next();
             }
+            Some(':') => {
+                iter.next();
+                println!("Warning: '(name):(name)' attribute syntax not supported.");
+            }
             Some(_) => {
                 let identifier = get_identifier(iter);
 
                 // Empty attributes are a thing, go figure
                 if iter.peek() == Some(&'=') {
                     iter.next();
-                    let string = get_string(iter);
+
+                    // There are also non-quoted attributes
+                    let mut string;
+                    if iter.peek() == Some(&'"') || iter.peek() == Some(&'\'') {
+                        string = get_string(iter);
+                    } else {
+                        // If it doesn't have a quote, then collect until a space or other
+                        // terminator character
+                        string = String::new();
+                        loop {
+                            match iter.peek() {
+                                Some(v) if v.is_whitespace() => {
+                                    break;
+                                }
+
+                                Some('/') => {
+                                    if iter.clone().nth(2) == Some('>') {
+                                        break;
+                                    } else {
+                                        string.push(iter.next().unwrap());
+                                    }
+                                }
+
+                                Some('>') => {
+                                    break;
+                                }
+
+                                Some(v) => {
+                                    string.push(*v);
+                                    iter.next();
+                                }
+
+                                None => todo!(),
+                            }
+                        }
+                    }
                     output.insert(identifier, string);
+                } else {
+                    output.insert(identifier, "".to_owned());
                 }
             }
             None => panic!("Attributes ran out"),
@@ -324,7 +379,7 @@ fn parse_html_element(iter: &mut Peekable<Chars>) -> Element {
         if iter.peek() == Some(&'/') {
             iter.next();
         }
-        assert_eq!(iter.next(), Some('>'));
+        assert_eq!(iter.next(), Some('>'), "Element: {}\n", tag);
         let mut element = Element::new(Tag::from_string(&tag).unwrap());
         element.attributes = attributes;
         return element;
