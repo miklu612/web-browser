@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 pub struct Bound<T> {
     pub width: T,
     pub height: T,

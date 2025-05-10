@@ -38,7 +38,6 @@ impl Font {
 
     pub fn get_glyph_bounds(&self, character: char, font_size: f32) -> Bound<i32> {
         let font_scaled = self.font.as_scaled(font_size);
-        let glyph = self.font.glyph_id(character).with_scale(font_size);
         Bound::<i32>::new(
             self.get_glyph_width(character, font_size),
             font_scaled.height() as i32,
@@ -60,7 +59,7 @@ impl Font {
         );
 
         let mut previous_point = point(0.0, self.font.as_scaled(font_size).ascent());
-        let color = font_color.to_8_bit();
+        let color = font_color.as_8_bit();
         for character in word.chars() {
             let glyph = self
                 .font

@@ -138,6 +138,7 @@ impl Tag {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Element {
     pub element_type: Tag,
     pub children: Vec<Element>,

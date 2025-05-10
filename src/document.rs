@@ -1,6 +1,7 @@
 use crate::css::RuleSet;
 use crate::html::Element;
 
+#[allow(dead_code)]
 pub struct Document {
     pub elements: Vec<Element>,
     pub css_rules: Vec<RuleSet>,

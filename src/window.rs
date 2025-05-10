@@ -69,31 +69,6 @@ impl Rectangle {
             ebo: IndexBuffer::new(display, PrimitiveType::TrianglesList, &index_data).unwrap(),
         }
     }
-    pub fn with_uv(display: &Display<WindowSurface>, custom_uv: [[f32; 2]; 4]) -> Self {
-        let vertex_data = [
-            Vertex {
-                a_position: [-1.0, -1.0, 0.0],
-                a_tex_coord: custom_uv[0],
-            },
-            Vertex {
-                a_position: [-1.0, 1.0, 0.0],
-                a_tex_coord: custom_uv[1],
-            },
-            Vertex {
-                a_position: [1.0, -1.0, 0.0],
-                a_tex_coord: custom_uv[2],
-            },
-            Vertex {
-                a_position: [1.0, 1.0, 0.0],
-                a_tex_coord: custom_uv[3],
-            },
-        ];
-        let index_data = [0, 1, 2, 3, 2, 1];
-        Self {
-            vao: VertexBuffer::new(display, &vertex_data).unwrap(),
-            ebo: IndexBuffer::new(display, PrimitiveType::TrianglesList, &index_data).unwrap(),
-        }
-    }
 }
 
 pub struct Window {
@@ -347,12 +322,14 @@ impl Window {
         &self,
         frame: &mut Frame,
         string: &str,
-        x: i32,
-        y: i32,
+        position: Position,
         font_size: f32,
         background_color: Option<Color>,
         text_color: Color,
     ) {
+        let x = position.x;
+        let y = position.y;
+
         // Culling
         let top_y = self.screen_to_opengl_coordinates(0, y)[1];
         let bottom_y = self.screen_to_opengl_coordinates(
@@ -421,8 +398,10 @@ impl Window {
                     self.render_string(
                         frame,
                         &word.word,
-                        word.position.x,
-                        word.position.y + self.scroll_y,
+                        Position {
+                            x: word.position.x,
+                            y: word.position.y + self.scroll_y,
+                        },
                         paragraph.font_size,
                         paragraph.background_color,
                         color,

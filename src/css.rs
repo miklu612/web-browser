@@ -14,6 +14,7 @@ use std::{iter::Peekable, str::Chars};
 /// 50px
 /// ```
 #[derive(Debug, Copy, Clone)]
+#[allow(dead_code)]
 pub enum Unit {
     Px(i32),
     Pt(i32),
@@ -77,6 +78,7 @@ pub enum Position {
 /// return in function calls. It will be up to the function implementation to validate that this
 /// value contains the correct value.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum Value {
     Unit(Unit),
     Color(Color),
@@ -169,6 +171,7 @@ impl Value {
 /// width: 50px;
 /// ```
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum Rule {
     Width(Unit),
     MarginLeft(Unit),
@@ -219,18 +222,9 @@ impl Rule {
 /// p {};
 /// ```
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum Selector {
     Element(Tag),
-}
-
-impl Selector {
-    pub fn new(selector: &str) -> Self {
-        match selector {
-            "p" => Selector::Element(Tag::Paragraph),
-
-            _ => panic!("Unknown selector '{}'", selector),
-        }
-    }
 }
 
 /// Represents an entire ruleset block with selectors and rules.
@@ -252,15 +246,10 @@ impl Selector {
 /// }
 /// ```
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct RuleSet {
     pub selectors: Vec<Selector>,
     pub rules: Vec<Rule>,
-}
-
-impl RuleSet {
-    pub fn new(selectors: Vec<Selector>, rules: Vec<Rule>) -> Self {
-        Self { selectors, rules }
-    }
 }
 
 pub fn skip_whitespace(iterator: &mut Peekable<Chars>) {
@@ -292,31 +281,6 @@ pub fn get_identifier(iterator: &mut Peekable<Chars>) -> String {
         }
     }
     output
-}
-
-/// The iterator has to begin at the first letter of the first value. The iterator will be returned
-/// in the ending `;` character.
-pub fn parse_css_value_unit(iterator: &mut Peekable<Chars>) -> Unit {
-    let mut digit: i32 = 0;
-    let output;
-    loop {
-        match iterator.peek() {
-            Some(v) if v.is_numeric() => {
-                digit = digit * 10 + v.to_digit(10).unwrap() as i32;
-                iterator.next();
-            }
-
-            Some('p') => {
-                assert_eq!(iterator.next(), Some('p'));
-                assert_eq!(iterator.next(), Some('x'));
-                output = Some(Unit::Px(digit));
-                break;
-            }
-
-            _ => panic!("Unhandled character in value unit: '{:?}'", iterator.next()),
-        }
-    }
-    output.expect("Couldn't evaluate value unit type")
 }
 
 pub fn collect_until_terminator(iterator: &mut Peekable<Chars>, terminators: &[char]) -> String {
@@ -441,36 +405,4 @@ pub fn parse_block(iterator: &mut Peekable<Chars>) -> Vec<Rule> {
         }
     }
     rules
-}
-
-pub fn parse_css(source: &str) -> Vec<RuleSet> {
-    let mut iterator = source.chars().peekable();
-    let mut rule_sets = Vec::new();
-    loop {
-        match iterator.peek() {
-            Some(v) if v.is_whitespace() => {
-                skip_whitespace(&mut iterator);
-            }
-
-            Some(v) => {
-                let identifier = get_identifier(&mut iterator);
-                let selector = Selector::new(&identifier);
-                println!("Identifier: '{}'", identifier);
-
-                skip_whitespace(&mut iterator);
-                assert_eq!(iterator.peek(), Some('{').as_ref());
-
-                let rules = parse_block(&mut iterator);
-                assert_eq!(iterator.next(), Some('}'));
-                println!("Parsed block");
-
-                rule_sets.push(RuleSet::new(vec![selector], rules));
-            }
-
-            None => break,
-
-            _ => panic!("Unhandled CSS syntax character '{:?}'", iterator.peek()),
-        }
-    }
-    rule_sets
 }

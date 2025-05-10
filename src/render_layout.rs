@@ -36,6 +36,7 @@ impl Position {
 
 /// A generic size vector implementation
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)]
 pub struct Size {
     pub width: i32,
     pub height: i32,
@@ -44,13 +45,6 @@ pub struct Size {
 impl Size {
     pub fn new(width: i32, height: i32) -> Self {
         Self { width, height }
-    }
-
-    pub fn scaled(&self, scale: f32) -> Self {
-        Self {
-            width: (self.width as f32 * scale) as i32,
-            height: (self.height as f32 * scale) as i32,
-        }
     }
 }
 
@@ -137,7 +131,7 @@ impl Paragraph {
 }
 
 #[derive(Debug, Clone)]
-enum Definition {
+pub enum Definition {
     Paragraph(ParagraphDefinition),
     Table(TableDefinition),
 }
@@ -145,6 +139,7 @@ enum Definition {
 /// A definition of an element rect that has not been created yet. This is a part of the
 /// preprocessing step and will be turned into a rect later on.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct ElementDefinition {
     pub tag: Tag,
     pub children: Vec<Definition>,
@@ -241,6 +236,7 @@ pub fn collect_definition(element: &Element) -> ElementDefinition {
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct SentenceDefinition {
     pub tag: Tag,
     pub words: Vec<String>,
@@ -260,6 +256,7 @@ impl SentenceDefinition {
 
 /// A collection of elements that should be drawn inline
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ParagraphDefinition {
     pub tag: Tag,
     pub sentences: Vec<SentenceDefinition>,
@@ -372,12 +369,6 @@ impl TableRowDefinition {
                         }
                         values.extend(paragraphs);
                     }
-
-                    _ => {
-                        return Err(
-                            "Trying to render a non-paragraph element inside a table".to_string()
-                        )
-                    }
                 }
             }
         }
@@ -420,7 +411,7 @@ impl TableDefinition {
     }
 
     /// Compile this table into a rendeable [Table]
-    pub fn compile(&self, viewport_size: Size, font: &Font) -> Table {
+    pub fn compile(&self, font: &Font) -> Table {
         // Calculate the column widths so the elements can be placed correctly
         let mut max_column_widths = Vec::new();
         for row in &self.rows {
@@ -441,8 +432,8 @@ impl TableDefinition {
             for (column_index, column) in row.values.iter().enumerate() {
                 // Get the x position for this column element
                 let mut x_position = 0;
-                for i in 0..column_index {
-                    x_position += max_column_widths[i];
+                for width in max_column_widths.iter().take(column_index) {
+                    x_position += width;
                 }
 
                 let mut paragraph = column.compile(Size::new(2000, 2000), font);
@@ -486,15 +477,13 @@ impl Layout {
                     }
 
                     Definition::Table(table) => {
-                        let table_values = table.compile(viewport_size, font);
+                        let table_values = table.compile(font);
                         let mut paragraph = table_values.paragraphs.first().unwrap().clone();
                         for i in 1..table_values.paragraphs.len() {
                             paragraph.combine_sentences(table_values.paragraphs[i].clone());
                         }
                         paragraphs.push(paragraph);
                     }
-
-                    v => panic!("Not Implemented For '{:?}'", v),
                 }
             }
         }

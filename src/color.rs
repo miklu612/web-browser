@@ -25,15 +25,7 @@ impl Color {
         }
     }
 
-    pub fn to_array(&self) -> [f32; 4] {
-        [self.r, self.g, self.b, self.a]
-    }
-
-    pub fn to_array_no_alpha(&self) -> [f32; 3] {
-        [self.r, self.g, self.b]
-    }
-
-    pub fn to_8_bit(&self) -> [u8; 4] {
+    pub fn as_8_bit(&self) -> [u8; 4] {
         [
             (self.r * 255.0) as u8,
             (self.g * 255.0) as u8,
