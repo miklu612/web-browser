@@ -77,10 +77,12 @@ pub struct Window {
     display: Option<Display<WindowSurface>>,
     rect: Option<Rectangle>,
     program: Option<Program>,
+    solid_color_program: Option<Program>,
     document: Option<Document>,
     scroll_y: i32,
     font: Option<Font>,
     layout: Option<Layout>,
+    toolbar_url: String,
 }
 
 impl ApplicationHandler for Window {
@@ -182,6 +184,29 @@ impl ApplicationHandler for Window {
             .unwrap(),
         );
 
+        self.solid_color_program = Some(
+            program!(self.display.as_ref().unwrap(),
+            330 => {
+                vertex: r#"
+                    #version 330 core
+                    layout (location=0) in vec3 a_position;
+                    uniform mat4 transform;
+                    void main() {
+                        gl_Position = transform * vec4(a_position, 1.0);
+                    }
+                "#,
+                fragment: r#"
+                    #version 330 core
+                    out vec4 color;
+                    uniform vec4 in_color;
+                    void main() {
+                        color = in_color;
+                    }
+                "#
+            })
+            .unwrap(),
+        );
+
         self.load_font();
     }
 
@@ -192,6 +217,7 @@ impl ApplicationHandler for Window {
                 let mut frame = self.display.as_ref().unwrap().draw();
                 frame.clear(None, Some((0.8, 0.8, 0.8, 1.0)), true, None, None);
                 self.render_current_page(&mut frame);
+                self.render_toolbar(&mut frame);
                 frame.finish().expect("Failed to finish frame draw");
                 self.window.as_ref().unwrap().request_redraw();
             }
@@ -240,11 +266,13 @@ impl Window {
             display: None,
             rect: None,
             program: None,
+            solid_color_program: None,
             scroll_y: 0,
             document: None,
             font: None,
             layout: None,
             mouse_position: Position::new(0, 0),
+            toolbar_url: "NoURL".to_string(),
         }
     }
 
@@ -289,6 +317,7 @@ impl Window {
                     {
                         println!("Getting {:?}", sentence.href);
                         new_elements = Some(parse_html(&get_site(sentence.href.as_ref().unwrap())));
+                        self.toolbar_url = sentence.href.clone().unwrap();
                         println!("Content received!");
                     }
                 }
@@ -316,6 +345,74 @@ impl Window {
     pub fn render(&mut self, elements: Vec<Element>) {
         self.set_elements(elements);
         self.open();
+    }
+
+    pub fn render_rect(&mut self, frame: &mut Frame, x: i32, y: i32, w: i32, h: i32, color: Color) {
+        let position = self.screen_to_opengl_coordinates(x, y);
+        let size = self.screen_to_relative_coordinates(w, h);
+        let transformation: Matrix4<f32> = Matrix4::identity()
+            .append_nonuniform_scaling(&Vector3::new(size[0], size[1], 1.0))
+            .append_translation(&Vector3::new(position[0], position[1], 0.0));
+        let compiled_matrix = TryInto::<[[f32; 4]; 4]>::try_into(transformation.data.0).unwrap();
+        let uniforms = uniform! {
+            transform: compiled_matrix,
+            in_color: color.as_opengl_color()
+        };
+        frame
+            .draw(
+                &self.rect.as_ref().unwrap().vao,
+                &self.rect.as_ref().unwrap().ebo,
+                self.solid_color_program.as_ref().unwrap(),
+                &uniforms,
+                &DrawParameters {
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+    }
+
+    pub fn render_toolbar(&mut self, frame: &mut Frame) {
+        let screen_size = self.window.as_ref().unwrap().inner_size();
+        let screen_width = screen_size.width as i32;
+        let screen_height = screen_size.height as i32;
+
+        // Draw background
+        let height = 50;
+        self.render_rect(
+            frame,
+            screen_width / 2,
+            height / 2,
+            screen_width,
+            height,
+            Color::black(),
+        );
+
+        // Draw the text area
+        let y_offset = 10;
+        let x_offset = 50;
+        let width = 600.min(screen_width - 50);
+        let text_area_height = height - y_offset;
+        self.render_rect(
+            frame,
+            x_offset + width / 2,
+            y_offset / 2 + text_area_height / 2,
+            width,
+            text_area_height,
+            Color::white(),
+        );
+
+        // Draw text
+        self.render_string(
+            frame,
+            &self.toolbar_url,
+            Position {
+                x: x_offset,
+                y: y_offset / 2,
+            },
+            text_area_height as f32,
+            None,
+            Color::black(),
+        );
     }
 
     pub fn render_string(

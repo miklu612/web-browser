@@ -16,6 +16,15 @@ impl Color {
         }
     }
 
+    pub fn white() -> Self {
+        Self {
+            r: 1.0,
+            g: 1.0,
+            b: 1.0,
+            a: 1.0,
+        }
+    }
+
     pub fn blue() -> Self {
         Self {
             r: 0.5,
@@ -23,6 +32,10 @@ impl Color {
             b: 1.0,
             a: 1.0,
         }
+    }
+
+    pub fn as_opengl_color(&self) -> [f32; 4] {
+        [self.r, self.g, self.b, self.a]
     }
 
     pub fn as_8_bit(&self) -> [u8; 4] {
