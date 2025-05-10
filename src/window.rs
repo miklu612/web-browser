@@ -420,7 +420,6 @@ impl Window {
     pub fn render_toolbar(&mut self, frame: &mut Frame) {
         let screen_size = self.window.as_ref().unwrap().inner_size();
         let screen_width = screen_size.width as i32;
-        let screen_height = screen_size.height as i32;
 
         // Draw background
         let height = self.toolbar.height;
