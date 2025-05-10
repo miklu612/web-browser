@@ -26,7 +26,7 @@ use winit::{
     dpi::PhysicalPosition,
     event::{ElementState, KeyEvent, MouseButton, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
-    keyboard::Key,
+    keyboard::{Key, NamedKey},
     raw_window_handle::{HasDisplayHandle, HasWindowHandle},
     window::{Cursor, CursorIcon, Window as WinitWindow, WindowId},
 };
@@ -71,6 +71,11 @@ impl Rectangle {
     }
 }
 
+pub struct Toolbar {
+    height: i32,
+    url: String,
+}
+
 pub struct Window {
     window: Option<WinitWindow>,
     mouse_position: Position,
@@ -82,7 +87,8 @@ pub struct Window {
     scroll_y: i32,
     font: Option<Font>,
     layout: Option<Layout>,
-    toolbar_url: String,
+    focused_on_toolbar: bool,
+    toolbar: Toolbar,
 }
 
 impl ApplicationHandler for Window {
@@ -229,17 +235,37 @@ impl ApplicationHandler for Window {
                         ..
                     },
                 ..
-            } => match key.as_ref() {
-                Key::Character("j") => self.scroll_y -= 10,
-                Key::Character("k") => self.scroll_y += 10,
-                Key::Character("d") => {
-                    self.scroll_y += self.window.as_ref().unwrap().inner_size().height as i32
+            } => {
+                if !self.focused_on_toolbar {
+                    match key.as_ref() {
+                        Key::Character("j") => self.scroll_y -= 10,
+                        Key::Character("k") => self.scroll_y += 10,
+                        Key::Character("d") => {
+                            self.scroll_y +=
+                                self.window.as_ref().unwrap().inner_size().height as i32
+                        }
+                        Key::Character("u") => {
+                            self.scroll_y -=
+                                self.window.as_ref().unwrap().inner_size().height as i32
+                        }
+                        _ => (),
+                    }
+                } else {
+                    match key.as_ref() {
+                        Key::Character(character) => self.toolbar.url += character,
+                        Key::Named(NamedKey::Backspace) => {
+                            if !self.toolbar.url.is_empty() {
+                                self.toolbar.url.pop();
+                            }
+                        }
+                        Key::Named(NamedKey::Enter) => {
+                            let url = self.toolbar.url.clone();
+                            self.open_link(&url);
+                        }
+                        _ => (),
+                    }
                 }
-                Key::Character("u") => {
-                    self.scroll_y -= self.window.as_ref().unwrap().inner_size().height as i32
-                }
-                _ => (),
-            },
+            }
 
             WindowEvent::CursorMoved {
                 position: PhysicalPosition { x, y },
@@ -272,7 +298,11 @@ impl Window {
             font: None,
             layout: None,
             mouse_position: Position::new(0, 0),
-            toolbar_url: "NoURL".to_string(),
+            focused_on_toolbar: false,
+            toolbar: Toolbar {
+                height: 50,
+                url: "NoURL".to_string(),
+            },
         }
     }
 
@@ -307,6 +337,14 @@ impl Window {
     }
 
     pub fn handle_click(&mut self) {
+        // Check if the toolbar was clicked first
+        if self.mouse_position.y < 50 {
+            self.focused_on_toolbar = true;
+            return;
+        } else {
+            self.focused_on_toolbar = false;
+        }
+
         if let Some(layout) = self.layout.as_ref() {
             let x = self.mouse_position.x;
             let y = self.mouse_position.y;
@@ -315,10 +353,9 @@ impl Window {
                 for sentence in &paragraph.sentences {
                     if sentence.href.is_some() && sentence.is_position_inside(x, y - self.scroll_y)
                     {
-                        println!("Getting {:?}", sentence.href);
-                        new_elements = Some(parse_html(&get_site(sentence.href.as_ref().unwrap())));
-                        self.toolbar_url = sentence.href.clone().unwrap();
-                        println!("Content received!");
+                        let link = sentence.href.clone().unwrap();
+                        self.open_link(&link);
+                        return;
                     }
                 }
             }
@@ -326,6 +363,15 @@ impl Window {
                 self.set_elements(elements);
             }
         }
+    }
+
+    pub fn open_link(&mut self, link: &str) {
+        println!("Getting {:?}", link);
+        if let Some(elements) = Some(parse_html(&get_site(link))) {
+            self.set_elements(elements);
+        }
+        self.toolbar.url = link.to_owned();
+        println!("Content received!");
     }
 
     /// Transforms screen coordinates into a 0.0 - 1.0 scale
@@ -377,7 +423,7 @@ impl Window {
         let screen_height = screen_size.height as i32;
 
         // Draw background
-        let height = 50;
+        let height = self.toolbar.height;
         self.render_rect(
             frame,
             screen_width / 2,
@@ -404,7 +450,7 @@ impl Window {
         // Draw text
         self.render_string(
             frame,
-            &self.toolbar_url,
+            &self.toolbar.url,
             Position {
                 x: x_offset,
                 y: y_offset / 2,
