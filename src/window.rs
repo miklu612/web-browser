@@ -31,6 +31,9 @@ use winit::{
     window::{Cursor, CursorIcon, Window as WinitWindow, WindowId},
 };
 
+const HOME_PAGE: &str =
+    "<html><body><h1> Web Browser </h1><p> Welcome to the home page! </p></body></html>";
+
 #[derive(Copy, Clone)]
 struct Vertex {
     a_position: [f32; 3],
@@ -389,6 +392,12 @@ impl Window {
     }
 
     pub fn render(&mut self, elements: Vec<Element>) {
+        self.set_elements(elements);
+        self.open();
+    }
+
+    pub fn open_to_home_page(&mut self) {
+        let elements = parse_html(&HOME_PAGE);
         self.set_elements(elements);
         self.open();
     }

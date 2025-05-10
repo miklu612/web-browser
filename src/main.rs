@@ -59,6 +59,7 @@ fn main() {
             panic!("Unknown argument");
         }
     } else {
-        from_file(Path::new("./tests/index.html"));
+        let mut window = Window::new();
+        window.open_to_home_page();
     }
 }
