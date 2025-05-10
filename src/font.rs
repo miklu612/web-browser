@@ -54,7 +54,8 @@ impl Font {
 
     pub fn render_string(&self, word: &str, font_size: f32, font_color: Color) -> RgbaImage {
         let mut output = RgbaImage::new(
-            self.get_word_width(word, font_size) as u32 + 1,
+            // +2 due to some weird off by one error
+            self.get_word_width(word, font_size) as u32 + 2,
             self.get_glyph_height(font_size) as u32 + 1,
         );
 
