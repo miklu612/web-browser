@@ -55,6 +55,7 @@ pub enum Direction {
 #[derive(Debug)]
 pub enum FontStyle {
     Italic,
+    Bold,
 }
 
 #[derive(Debug)]
@@ -135,6 +136,8 @@ impl Value {
             return Value::DisplayStyle(DisplayStyle::None);
         } else if css_value == "italic" {
             return Value::FontStyle(FontStyle::Italic);
+        } else if css_value == "bold" {
+            return Value::FontStyle(FontStyle::Bold);
         } else if css_value == "nowrap" {
             return Value::WhiteSpace(WhiteSpace::NoWrap);
         } else if css_value == "normal" {
