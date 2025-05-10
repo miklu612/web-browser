@@ -77,6 +77,7 @@ impl Rectangle {
 pub struct Toolbar {
     height: i32,
     url: String,
+    home_button_width: i32,
 }
 
 pub struct Window {
@@ -304,6 +305,7 @@ impl Window {
             focused_on_toolbar: false,
             toolbar: Toolbar {
                 height: 50,
+                home_button_width: 40,
                 url: "NoURL".to_string(),
             },
         }
@@ -342,7 +344,12 @@ impl Window {
     pub fn handle_click(&mut self) {
         // Check if the toolbar was clicked first
         if self.mouse_position.y < 50 {
-            self.focused_on_toolbar = true;
+            if self.mouse_position.x < self.toolbar.home_button_width {
+                self.focused_on_toolbar = false;
+                self.load_home_page();
+            } else {
+                self.focused_on_toolbar = true;
+            }
             return;
         } else {
             self.focused_on_toolbar = false;
@@ -396,9 +403,14 @@ impl Window {
         self.open();
     }
 
-    pub fn open_to_home_page(&mut self) {
+    pub fn load_home_page(&mut self) {
+        self.scroll_y = 0;
         let elements = parse_html(&HOME_PAGE);
         self.set_elements(elements);
+    }
+
+    pub fn open_to_home_page(&mut self) {
+        self.load_home_page();
         self.open();
     }
 
@@ -443,7 +455,7 @@ impl Window {
 
         // Draw the text area
         let y_offset = 10;
-        let x_offset = 50;
+        let x_offset = self.toolbar.home_button_width;
         let width = 600.min(screen_width - 50);
         let text_area_height = height - y_offset;
         self.render_rect(
@@ -466,6 +478,16 @@ impl Window {
             text_area_height as f32,
             None,
             Color::black(),
+        );
+
+        // Draw home button
+        self.render_string(
+            frame,
+            "H",
+            Position { x: 0, y: 0 },
+            height as f32,
+            None,
+            Color::white(),
         );
     }
 
