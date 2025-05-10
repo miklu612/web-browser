@@ -325,14 +325,6 @@ fn parse_attributes(iter: &mut Peekable<Chars>) -> HashMap<String, String> {
                                     break;
                                 }
 
-                                Some('/') => {
-                                    if iter.clone().nth(2) == Some('>') {
-                                        break;
-                                    } else {
-                                        string.push(iter.next().unwrap());
-                                    }
-                                }
-
                                 Some('>') => {
                                     break;
                                 }
@@ -399,19 +391,32 @@ fn parse_html_element(iter: &mut Peekable<Chars>) -> Element {
         _ => panic!("Expected more after attributes"),
     }
 
-    let children = parse_element_content(iter);
-    assert!(
-        iter.next_if_eq(&'<').is_some(),
-        "Expected 'Some(<)' Got: '{:?}'",
-        iter.next()
-    );
-    assert!(
-        iter.next_if_eq(&'/').is_some(),
-        "Expected 'Some(/)' Got: '{:?}'",
-        iter.next()
-    );
+    let mut children = Vec::new();
+    if tag != "script" {
+        children = parse_element_content(iter);
+        assert!(
+            iter.next_if_eq(&'<').is_some(),
+            "Expected 'Some(<)' Got: '{:?}'",
+            iter.next()
+        );
+        assert!(
+            iter.next_if_eq(&'/').is_some(),
+            "Expected 'Some(/)' Got: '{:?}'",
+            iter.next()
+        );
+    } else {
+        println!("(Warning) Javascript is not supported");
+        // Skip javascript
+        while iter.clone().nth(0) != Some('<')
+            || iter.clone().nth(1) != Some('/')
+            || iter.clone().nth(2) != Some('s')
+        {
+            iter.next();
+        }
+        iter.nth(1);
+    }
     let closing_tag = get_identifier(iter);
-    assert_eq!(iter.next(), Some('>'));
+    assert_eq!(iter.next(), Some('>'), "Closing tag: {}", closing_tag);
     assert_eq!(tag, closing_tag);
 
     let mut element = Element::new(Tag::from_string(&tag).unwrap());
